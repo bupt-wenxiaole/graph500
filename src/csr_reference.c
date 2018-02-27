@@ -27,6 +27,7 @@ int *degrees;
 int64_t *column;
 float *weights;
 extern oned_csr_graph g; //from bfs_reference for isisolated function
+extern FILE* subgraph, subgraphFO, subgraphFI;
 
 //this function is needed for roots generation
 int isisolated(int64_t v) {
@@ -40,11 +41,41 @@ void halfedgehndl(int from,void* data,int sz)
 void fulledgehndl(int frompe,void* data,int sz) {
 	int vloc = *(int*)data;
 	int64_t gtgt = *((int64_t*)(data+4));
+	int64_t gsrc = VERTEX_TO_GLOBAL(my_pe(), vloc);
+	int tgtowner = VERTEX_OWNER(gtgt);
+	assert(my_pe() == VERTEX_OWNER(gsrc));
+	if(tgtowner == my_pe()){
+		char *edgetuple [100];
+		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
+		fprintf(subgraph, "%s\n", edgetuple);
+	}
+	else {
+		//dump this edge tuple to Frank.O
+		char *edgetuple[100];
+		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
+		fprintf(subgraphFO, "%s\n", edgetuple);
+		//send this edge tuple to Ftgtrank
+		int vgolable[5];
+		memcpy(vloc,&gsrc,8);
+		memcpy(vloc+2,&gtgt,8);
+		memcpy(vloc+4,&tgtowner,4);
+		aml_send(vloc,2,20,tgtowner);
+	}
 	SETCOLUMN(degrees[vloc]++,gtgt);
 #ifdef SSSP
 	float w = ((float*)data)[3];
 	weights[degrees[vloc]-1]=w;
 #endif
+}
+//edgedumphndl的内容merge到fulledgehndl中去
+//this function is handler for dump edge which belongs to F.I
+void dumphndl(int frompe,void* data,int sz) {
+	int64_t gsrc = *(int64_t*)data;
+	int64_t gtgt =  *((int64_t*)(data+8));
+	int srcowner = *((int*)(data+16));
+	char *edgetuple[100];
+	sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, srcowner);
+	fprintf(subgraphFI, "%s\n", edgetuple);
 }
 
 void send_half_edge (int64_t src,int64_t tgt) {
