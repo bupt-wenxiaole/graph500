@@ -130,7 +130,7 @@ static char recvbuf[AGGR*NRECV];
 static MPI_Request rqrecv[NRECV];
 
 unsigned long long nbytes_sent,nbytes_rcvd;
-
+static FILE* subgraph, subgraphFO, subgraphFI;
 static char *sendbuf_intra;
 static int *sendsize_intra;
 static ushort *acks_intra;
@@ -380,6 +380,17 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 #endif
 	if(num_groups>MAXGROUPS) { if(myproc==0) printf("AML:v1.0 reference:unsupported num_groups > MAXGROUPS=%d\n",MAXGROUPS); exit(-1); }
 	fflush(NULL);
+	//init file handler for split big graph for DRONE.
+	//use full path on NFS
+	char subgraphname[50];
+	sprintf(subgraphname, "G.%d", myproc);
+	subgraph = fopen(subgraphname, "w");
+	char FI[50];
+	sprintf(FI, "F%d.I", myproc);
+	subgraphFI = fopen(subgraphname, "w");
+	char FO[50];
+	sprintf(FO, "F%d.O", myproc);
+	subgraphFO = fopen(subgraphname, "w");
 	//init preposted recvs: NRECV internode
 	for(i=0;i<NRECV;i++)  {
 		r = MPI_Recv_init( recvbuf+AGGR*i, AGGR, MPI_CHAR,MPI_ANY_SOURCE, MPI_ANY_TAG, comm,rqrecv+i );
