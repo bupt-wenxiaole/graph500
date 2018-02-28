@@ -130,7 +130,9 @@ static char recvbuf[AGGR*NRECV];
 static MPI_Request rqrecv[NRECV];
 
 unsigned long long nbytes_sent,nbytes_rcvd;
-static FILE* subgraph, subgraphFO, subgraphFI;
+FILE* subgraph;
+FILE* subgraphFO;
+FILE* subgraphFI;
 static char *sendbuf_intra;
 static int *sendsize_intra;
 static ushort *acks_intra;
@@ -382,15 +384,15 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	fflush(NULL);
 	//init file handler for split big graph for DRONE.
 	//use full path on NFS
-	char subgraphname[50];
-	sprintf(subgraphname, "G.%d", myproc);
-	subgraph = fopen(subgraphname, "w");
-	char FI[50];
-	sprintf(FI, "F%d.I", myproc);
-	subgraphFI = fopen(subgraphname, "w");
-	char FO[50];
-	sprintf(FO, "F%d.O", myproc);
-	subgraphFO = fopen(subgraphname, "w");
+	char subgraphpath[50];
+	sprintf(subgraphpath, "/mnt/nfs/xwen/generate_graph/G.%d", myproc);
+	subgraph = fopen(subgraphpath, "w");
+	char FIpath[50];
+	sprintf(FIpath, "/mnt/nfs/xwen/generate_graph/F%d.I", myproc);
+	subgraphFI = fopen(FIpath, "w");
+	char FOpath[50];
+	sprintf(FOpath, "/mnt/nfs/xwen/generate_graph/F%d.O", myproc);
+	subgraphFO = fopen(FOpath, "w");
 	//init preposted recvs: NRECV internode
 	for(i=0;i<NRECV;i++)  {
 		r = MPI_Recv_init( recvbuf+AGGR*i, AGGR, MPI_CHAR,MPI_ANY_SOURCE, MPI_ANY_TAG, comm,rqrecv+i );

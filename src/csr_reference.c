@@ -27,7 +27,9 @@ int *degrees;
 int64_t *column;
 float *weights;
 extern oned_csr_graph g; //from bfs_reference for isisolated function
-extern FILE* subgraph, subgraphFO, subgraphFI;
+extern FILE* subgraph;
+extern FILE* subgraphFO;
+extern FILE* subgraphFI;
 
 //this function is needed for roots generation
 int isisolated(int64_t v) {
@@ -45,21 +47,21 @@ void fulledgehndl(int frompe,void* data,int sz) {
 	int tgtowner = VERTEX_OWNER(gtgt);
 	assert(my_pe() == VERTEX_OWNER(gsrc));
 	if(tgtowner == my_pe()){
-		char *edgetuple [100];
+		char edgetuple [100];
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
 		fprintf(subgraph, "%s\n", edgetuple);
 	}
 	else {
 		//dump this edge tuple to Frank.O
-		char *edgetuple[100];
+		char edgetuple[100];
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
 		fprintf(subgraphFO, "%s\n", edgetuple);
 		//send this edge tuple to Ftgtrank
 		int vgolable[5];
-		memcpy(vloc,&gsrc,8);
-		memcpy(vloc+2,&gtgt,8);
-		memcpy(vloc+4,&tgtowner,4);
-		aml_send(vloc,2,20,tgtowner);
+		memcpy(vgolable,&gsrc,8);
+		memcpy(vgolable+2,&gtgt,8);
+		memcpy(vgolable+4,&tgtowner,4);
+		aml_send(vgolable,2,20,tgtowner);
 	}
 	SETCOLUMN(degrees[vloc]++,gtgt);
 #ifdef SSSP
@@ -73,7 +75,7 @@ void dumphndl(int frompe,void* data,int sz) {
 	int64_t gsrc = *(int64_t*)data;
 	int64_t gtgt =  *((int64_t*)(data+8));
 	int srcowner = *((int*)(data+16));
-	char *edgetuple[100];
+	char edgetuple[100];
 	sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, srcowner);
 	fprintf(subgraphFI, "%s\n", edgetuple);
 }
@@ -189,6 +191,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	g->column = column;
 
 	aml_register_handler(fulledgehndl,1);
+	aml_register_handler(dumphndl,2);
 	//Next pass , actual data transfer: placing edges to its places in column and hcolumn
 	ITERATE_TUPLE_GRAPH_BEGIN(tg, buf, bufsize,wbuf) {
 		ptrdiff_t j;
