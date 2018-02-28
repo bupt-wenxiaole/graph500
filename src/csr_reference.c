@@ -46,6 +46,7 @@ void fulledgehndl(int frompe,void* data,int sz) {
 	int64_t gsrc = VERTEX_TO_GLOBAL(my_pe(), vloc);
 	int tgtowner = VERTEX_OWNER(gtgt);
 	assert(my_pe() == VERTEX_OWNER(gsrc));
+	int srcowner = my_pe();
 	if(tgtowner == my_pe()){
 		char edgetuple [100];
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
@@ -60,7 +61,7 @@ void fulledgehndl(int frompe,void* data,int sz) {
 		int vgolable[5];
 		memcpy(vgolable,&gsrc,8);
 		memcpy(vgolable+2,&gtgt,8);
-		memcpy(vgolable+4,&tgtowner,4);
+		memcpy(vgolable+4,&srcowner,4);
 		aml_send(vgolable,2,20,tgtowner);
 	}
 	SETCOLUMN(degrees[vloc]++,gtgt);
