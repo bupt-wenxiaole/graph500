@@ -43,32 +43,51 @@ void halfedgehndl(int from,void* data,int sz)
 void fulledgehndl(int frompe,void* data,int sz) {
 	int vloc = *(int*)data;
 	int64_t gtgt = *((int64_t*)(data+4));
+	SETCOLUMN(degrees[vloc]++,gtgt);
 	int64_t gsrc = VERTEX_TO_GLOBAL(my_pe(), vloc);
 	int tgtowner = VERTEX_OWNER(gtgt);
+	#ifdef SSSP
+	float w = ((float*)data)[3];
+	weights[degrees[vloc]-1]=w;
+	#endif
 	assert(my_pe() == VERTEX_OWNER(gsrc));
 	int srcowner = my_pe();
 	if(tgtowner == my_pe()){
 		char edgetuple [100];
+		#ifdef SSSP
+		sprintf(edgetuple, "%lld %lld %d %f", gsrc, gtgt, tgtowner, w);
+		fprintf(subgraph, "%s\n", edgetuple);
+		#else
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
 		fprintf(subgraph, "%s\n", edgetuple);
+		#endif
+
 	}
 	else {
 		//dump this edge tuple to Frank.O
 		char edgetuple[100];
+		#ifdef SSSP
+		sprintf(edgetuple, "%lld %lld %d %f", gsrc, gtgt, tgtowner, w);
+		fprintf(subgraphFO, "%s\n", edgetuple);
+		int vgolable[6];
+		memcpy(vgolable,&gsrc,8);
+		memcpy(vgolable+2,&gtgt,8);
+		memcpy(vgolable+4,&srcowner,4);
+		memcpy(vgolable+5,&w,4);
+		aml_send(vgolable,2,24,tgtowner);
+		//send this edge tuple to Ftgtrank
+		#else
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
 		fprintf(subgraphFO, "%s\n", edgetuple);
-		//send this edge tuple to Ftgtrank
 		int vgolable[5];
 		memcpy(vgolable,&gsrc,8);
 		memcpy(vgolable+2,&gtgt,8);
 		memcpy(vgolable+4,&srcowner,4);
 		aml_send(vgolable,2,20,tgtowner);
+		#endif
+		
 	}
-	SETCOLUMN(degrees[vloc]++,gtgt);
-#ifdef SSSP
-	float w = ((float*)data)[3];
-	weights[degrees[vloc]-1]=w;
-#endif
+
 }
 //edgedumphndl的内容merge到fulledgehndl中去
 //this function is handler for dump edge which belongs to F.I
@@ -77,8 +96,14 @@ void dumphndl(int frompe,void* data,int sz) {
 	int64_t gtgt =  *((int64_t*)(data+8));
 	int srcowner = *((int*)(data+16));
 	char edgetuple[100];
+	#ifdef SSSP
+	float w = *((float*)(data+20));
+	sprintf(edgetuple, "%lld %lld %d %f", gsrc, gtgt, srcowner, w);
+	fprintf(subgraphFI, "%s\n", edgetuple);
+	#else
 	sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, srcowner);
 	fprintf(subgraphFI, "%s\n", edgetuple);
+	#endif
 }
 
 void send_half_edge (int64_t src,int64_t tgt) {
