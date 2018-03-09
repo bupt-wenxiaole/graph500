@@ -23,6 +23,8 @@
 #include <search.h>
 
 int64_t nverts_known = 0;
+//number of edges of cross rank
+int64_t nedges_boarder = 0;
 int *degrees;
 int64_t *column;
 float *weights;
@@ -31,6 +33,13 @@ extern FILE* subgraph;
 extern FILE* subgraphFO;
 extern FILE* subgraphFI;
 
+struct crossedge{
+	int64_t gsrc;
+	int64_t gtgt;
+	int srcowner;
+};
+struct crossedge* tmpbuf;
+float *crossweights;
 //this function is needed for roots generation
 int isisolated(int64_t v) {
 	if(my_pe()==VERTEX_OWNER(v)) return (g.rowstarts[VERTEX_LOCAL(v)]==g.rowstarts[VERTEX_LOCAL(v)+1]);
@@ -61,7 +70,6 @@ void fulledgehndl(int frompe,void* data,int sz) {
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
 		fprintf(subgraph, "%s\n", edgetuple);
 		#endif
-
 	}
 	else {
 		//dump this edge tuple to Frank.O
@@ -69,23 +77,22 @@ void fulledgehndl(int frompe,void* data,int sz) {
 		#ifdef SSSP
 		sprintf(edgetuple, "%lld %lld %d %f", gsrc, gtgt, tgtowner, w);
 		fprintf(subgraphFO, "%s\n", edgetuple);
-		int vgolable[6];
-		memcpy(vgolable,&gsrc,8);
-		memcpy(vgolable+2,&gtgt,8);
-		memcpy(vgolable+4,&srcowner,4);
-		memcpy(vgolable+5,&w,4);
-		aml_send(vgolable,2,24,tgtowner);
-		//send this edge tuple to Ftgtrank
+		struct crossedge edge;
+		edge.gsrc = gsrc;
+		edge.gtgt = gtgt;
+		edge.srcowner = srcowner;
+
+		tmpbuf[nedges_boarder] = edge;
+		crossweights[nedges_boarder++] = w;
 		#else
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
 		fprintf(subgraphFO, "%s\n", edgetuple);
-		int vgolable[5];
-		memcpy(vgolable,&gsrc,8);
-		memcpy(vgolable+2,&gtgt,8);
-		memcpy(vgolable+4,&srcowner,4);
-		aml_send(vgolable,2,20,tgtowner);
+		struct crossedge edge;
+		edge.gsrc = gsrc;
+		edge.gtgt = gtgt;
+		edge.srcowner = srcowner;
+		tmpbuf[nedges_boarder++] = edge;
 		#endif
-		
 	}
 
 }
@@ -140,7 +147,6 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	nvert/=num_pes();
 	nvert+=1;
 	degrees=xcalloc(nvert,sizeof(int));
-
 	aml_register_handler(halfedgehndl,1);
 	int numiters=ITERATE_TUPLE_GRAPH_BLOCK_COUNT(tg);
 	// First pass : calculate degrees of each vertex
@@ -215,9 +221,13 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 #endif
 	//long allocatededges=colalloc;
 	g->column = column;
-
+	//Third pass, transfer the across rank edge to it's owner rank according with target index
+	tmpbuf=xcalloc(nlocaledges+1,sizeof(struct crossedge));
+	#ifdef SSSP
+	crossweights=xcalloc(nlocaledges+1,sizeof(float));
+	#endif
+	printf("nlocaledges%lld\n", nlocaledges);
 	aml_register_handler(fulledgehndl,1);
-	aml_register_handler(dumphndl,2);
 	//Next pass , actual data transfer: placing edges to its places in column and hcolumn
 	ITERATE_TUPLE_GRAPH_BEGIN(tg, buf, bufsize,wbuf) {
 		ptrdiff_t j;
@@ -235,8 +245,38 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 		}
 		aml_barrier();
 	} ITERATE_TUPLE_GRAPH_END;
-
 	free(degrees);
+	aml_register_handler(dumphndl,1);
+	int srcowner = my_pe();
+	printf("nedges_boarder %lld\n", nedges_boarder);
+	assert(nedges_boarder <= nlocaledges);
+	for(k = 0; k < nedges_boarder; ++k) {
+#ifdef SSSP
+		printf("send edge gsrc:%lld gtgt %lld srcowner %lld weight %f\n", tmpbuf[k].gsrc, tmpbuf[k].gtgt, tmpbuf[k].srcowner, crossweights[k]);
+		int vgolable[6];
+		memcpy(vgolable,&tmpbuf[k].gsrc,8);
+		memcpy(vgolable+2,&tmpbuf[k].gtgt,8);
+		memcpy(vgolable+4,&tmpbuf[k].srcowner,4);
+		memcpy(vgolable+5,&crossweights[k],4);
+		int tgtowner = VERTEX_OWNER(tmpbuf[k].gtgt);
+		printf("before send, my rank is %d\n", my_pe());
+		aml_send(vgolable,2,24,tgtowner);
+		printf("after send\n, my rank is %d\n", my_pe());
+		//send this edge tuple to Ftgtrank
+#else 
+		int vgolable[5];
+		memcpy(vgolable,&tmpbuf[k].gsrc,8);
+		memcpy(vgolable+2,&tmpbuf[k].gtgt,8);
+		memcpy(vgolable+4,&tmpbuf[k].srcowner,4);
+		int tgtowner = VERTEX_OWNER(tmpbuf[k].gtgt);
+		aml_send(vgolable,2,20,tgtowner);
+#endif
+	}
+	aml_barrier();
+	free(tmpbuf);
+#ifdef SSSP
+	free(crossweights);
+#endif
 }
 
 void free_oned_csr_graph(oned_csr_graph* const g) {
