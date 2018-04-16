@@ -130,7 +130,8 @@ static char recvbuf[AGGR*NRECV];
 static MPI_Request rqrecv[NRECV];
 
 unsigned long long nbytes_sent,nbytes_rcvd;
-
+FILE* rangepartition;
+FILE* csrformat;
 static char *sendbuf_intra;
 static int *sendsize_intra;
 static ushort *acks_intra;
@@ -429,6 +430,13 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 		MPI_Isend( NULL, 0, MPI_CHAR, MPI_PROC_NULL, 0, comm, rqsend+j );
 		activebuf[j]=num_groups+j;
 	}
+	//use full path on NFS
+	char rangepartitionpath[100];
+	sprintf(rangepartitionpath, "/mnt/nfs/xwen/generate_graph/P.%d", myproc);
+	rangepartition = fopen(rangepartitionpath, "w");
+	char csrformatpath[100];
+	sprintf(csrformatpath, "/mnt/nfs/xwen/generate_graph/CSR.%d", myproc);
+	csrformat = fopen(csrformatpath, "w");
 	return 0;
 }
 

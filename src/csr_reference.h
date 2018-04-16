@@ -29,11 +29,13 @@ typedef struct oned_csr_graph {
 void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* const g);
 void free_oned_csr_graph(oned_csr_graph* const g);
 
-//#define BYTES_PER_VERTEX 8
-//#define COLUMN(i) column[i]
-//#define SETCOLUMN(a,b) column[a]=b;
+//change another column storage strategy
+#define BYTES_PER_VERTEX 8
+#define COLUMN(i) column[i]
+#define SETCOLUMN(a,b) column[a]=b;
+/*
 #define BYTES_PER_VERTEX 6
 #define SETCOLUMN(a,b) memcpy(((char*)column)+(BYTES_PER_VERTEX*a),&b,BYTES_PER_VERTEX)
 #define COLUMN(i) (*(int64_t*)(((char*)column)+(BYTES_PER_VERTEX*i)) & (int64_t)(0xffffffffffffffffULL>>(64-8*BYTES_PER_VERTEX)))
-
+*/
 #endif /* CSR_REFERENCE_H */

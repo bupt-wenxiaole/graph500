@@ -31,6 +31,9 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+//this global value is for vertexowner in common.h
+int64_t gverts;
+
 int isisolated(int64_t v);
 static int compare_doubles(const void* a, const void* b) {
 	double aa = *(const double*)a;
@@ -99,7 +102,7 @@ int main(int argc, char** argv) {
 	tuple_graph tg;
 	tg.nglobaledges = (int64_t)(edgefactor) << SCALE;
 	int64_t nglobalverts = (int64_t)(1) << SCALE;
-
+	gverts = nglobalverts;
 	tg.data_in_file = (filename != NULL);
 	tg.write_file = 1;
 

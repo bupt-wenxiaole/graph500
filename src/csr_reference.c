@@ -27,6 +27,8 @@ int *degrees;
 int64_t *column;
 float *weights;
 extern oned_csr_graph g; //from bfs_reference for isisolated function
+extern FILE* rangepartition;
+extern FILE* csrformat;
 
 //this function is needed for roots generation
 int isisolated(int64_t v) {
@@ -40,10 +42,18 @@ void halfedgehndl(int from,void* data,int sz)
 void fulledgehndl(int frompe,void* data,int sz) {
 	int vloc = *(int*)data;
 	int64_t gtgt = *((int64_t*)(data+4));
+	int64_t gsrc = VERTEX_TO_GLOBAL(my_pe(), vloc);
+	assert(my_pe() == VERTEX_OWNER(gsrc));
+	char edgetuple [100];
 	SETCOLUMN(degrees[vloc]++,gtgt);
 #ifdef SSSP
 	float w = ((float*)data)[3];
 	weights[degrees[vloc]-1]=w;
+	sprintf(edgetuple, "%lld %lld %f", gsrc, gtgt, w);
+	fprintf(rangepartition, "%s\n", edgetuple);
+#else
+	sprintf(edgetuple, "%lld %lld", gsrc, gtgt);
+	fprintf(rangepartition, "%s\n", edgetuple);
 #endif
 }
 
@@ -101,7 +111,8 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	aml_long_allmax(&nverts_known);
 	nglobalverts=nverts_known+1;
 	g->nglobalverts = nglobalverts;
-	size_t nlocalverts = VERTEX_LOCAL(nglobalverts + num_pes() - 1 - my_pe());
+	printf("all max nglobalverts %lld\n", nglobalverts);
+	size_t nlocalverts = (size_t)DIV_SIZE(nglobalverts + num_pes() - 1 - my_pe());
 	g->nlocalverts = nlocalverts;
 
 	//graph stats printing
@@ -131,6 +142,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 
 	g->notisolated=g->nglobalverts-isolated;
 #endif
+	printf("size of rowstarts %d\n", nlocalverts);	
 	unsigned int *rowstarts = xmalloc((nlocalverts + 1) * sizeof(int));
 	g->rowstarts = rowstarts;
 
@@ -177,6 +189,18 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	} ITERATE_TUPLE_GRAPH_END;
 
 	free(degrees);
+	fprintf(csrformat, "xadj\n");
+	for (j = 0; j < nlocalverts + 1; ++j) {
+		fprintf(csrformat, "%d\n", rowstarts[j]);
+	}
+	fprintf(csrformat, "adjncy\n");
+	for(j = 0; j < nlocaledges; ++j) {
+		fprintf(csrformat, "%lld\n ", column[j]);
+	}
+	fprintf(csrformat, "vtxdist\n");
+	for(j = 0; j <= num_pes(); ++j) {
+		fprintf(csrformat, "%lld\n", j*SIZE_PER_RANK);
+	}
 }
 
 void free_oned_csr_graph(oned_csr_graph* const g) {

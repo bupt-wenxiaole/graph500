@@ -20,6 +20,8 @@
 #define SIZE_MUST_BE_A_POWER_OF_TWO
 #endif
 extern int rank, size;
+//same as global vertex number
+extern int64_t gverts;
 #ifdef SIZE_MUST_BE_A_POWER_OF_TWO
 extern int lgsize;
 #endif
@@ -33,15 +35,23 @@ static const int ulong_bits = sizeof(unsigned long) * CHAR_BIT;
 #define MOD_SIZE(v) ((v) & ((1 << lgsize) - 1))
 #define DIV_SIZE(v) ((v) >> lgsize)
 #define MUL_SIZE(x) ((x) << lgsize)
+#define SIZE_PER_RANK (gverts >> lgsize)
+#define MOD_SIZE_PER_RANK(v) ((v) % SIZE_PER_RANK) 
+#define DIV_SIZE_PER_RANK(v) ((v) / SIZE_PER_RANK) 
+#define MUL_SIZE_PER_RANK(x) ((x) * SIZE_PER_RANK) 
 #else
 #define MOD_SIZE(v) ((v) % size)
 #define DIV_SIZE(v) ((v) / size)
 #define MUL_SIZE(x) ((x) * size)
+#define SIZE_PER_RANK (gverts / size)
+#define MOD_SIZE_PER_RANK(v) ((v) % SIZE_PER_RANK) 
+#define DIV_SIZE_PER_RANK(v) ((v) / SIZE_PER_RANK) 
+#define MUL_SIZE_PER_RANK(x) ((x) * SIZE_PER_RANK) 
 #endif
-
-#define VERTEX_OWNER(v) ((int)(MOD_SIZE(v)))
-#define VERTEX_LOCAL(v) ((size_t)(DIV_SIZE(v)))
-#define VERTEX_TO_GLOBAL(r, i) ((int64_t)(MUL_SIZE((uint64_t)((i))) + (int)((r))))
+//change hash partition to range partition
+#define VERTEX_OWNER(v) ((int)(DIV_SIZE_PER_RANK(v)))
+#define VERTEX_LOCAL(v) ((size_t)(MOD_SIZE_PER_RANK(v)))
+#define VERTEX_TO_GLOBAL(r, i) ((int64_t)(MUL_SIZE_PER_RANK((uint64_t)((r))) + (int)((i))))
 
 typedef struct tuple_graph {
 	int data_in_file; /* 1 for file, 0 for memory */
