@@ -302,272 +302,272 @@ int main(int argc, char** argv) {
 	double data_struct_time = data_struct_stop - data_struct_start;
 	if (rank == 0) { /* Not an official part of the results */
 		fprintf(stderr, "construction_time:              %f s\n", data_struct_time);
-	}
+	}//
 
-	//generate non-isolated roots
-	{
-		uint64_t counter = 0;
-		int bfs_root_idx;
-		for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
-			int64_t root;
-			while (1) {
-				double d[2];
-				make_random_numbers(2, seed1, seed2, counter, d);
-				root = (int64_t)((d[0] + d[1]) * nglobalverts) % nglobalverts;
-				counter += 2;
-				if (counter > 2 * nglobalverts) break;
-				int is_duplicate = 0;
-				int i;
-				for (i = 0; i < bfs_root_idx; ++i) {
-					if (root == bfs_roots[i]) {
-						is_duplicate = 1;
-						break;
-					}
-				}
-				if (is_duplicate) continue; /* Everyone takes the same path here */
-				int root_bad = isisolated(root);
-				MPI_Allreduce(MPI_IN_PLACE, &root_bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-				if (!root_bad) break;
-			}
-			bfs_roots[bfs_root_idx] = root;
-		}
-		num_bfs_roots = bfs_root_idx;
+//	//generate non-isolated roots
+//	{
+//		uint64_t counter = 0;
+//		int bfs_root_idx;
+//		for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
+//			int64_t root;
+//			while (1) {
+//				double d[2];
+//				make_random_numbers(2, seed1, seed2, counter, d);
+//				root = (int64_t)((d[0] + d[1]) * nglobalverts) % nglobalverts;
+//				counter += 2;
+//				if (counter > 2 * nglobalverts) break;
+//				int is_duplicate = 0;
+//				int i;
+//				for (i = 0; i < bfs_root_idx; ++i) {
+//					if (root == bfs_roots[i]) {
+//						is_duplicate = 1;
+//						break;
+//					}
+//				}
+//				if (is_duplicate) continue; /* Everyone takes the same path here */
+//				int root_bad = isisolated(root);
+//				MPI_Allreduce(MPI_IN_PLACE, &root_bad, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+//				if (!root_bad) break;
+//			}
+//			bfs_roots[bfs_root_idx] = root;
+//		}
+//		num_bfs_roots = bfs_root_idx;//
+//
 
+//	}
+//	/* Number of edges visited in each BFS; a double so get_statistics can be
+//	 * used directly. */
+//	double* edge_counts = (double*)xmalloc(num_bfs_roots * sizeof(double));//
 
-	}
-	/* Number of edges visited in each BFS; a double so get_statistics can be
-	 * used directly. */
-	double* edge_counts = (double*)xmalloc(num_bfs_roots * sizeof(double));
+//	/* Run BFS. */
+//	int validation_passed = 1;
+//	double* bfs_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
+//	double* validate_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
+//	uint64_t nlocalverts = get_nlocalverts_for_pred();
+//	int64_t* pred = (int64_t*)xMPI_Alloc_mem(nlocalverts * sizeof(int64_t));
+//	float* shortest = (float*)xMPI_Alloc_mem(nlocalverts * sizeof(float));//
+//
 
-	/* Run BFS. */
-	int validation_passed = 1;
-	double* bfs_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
-	double* validate_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
-	uint64_t nlocalverts = get_nlocalverts_for_pred();
-	int64_t* pred = (int64_t*)xMPI_Alloc_mem(nlocalverts * sizeof(int64_t));
-	float* shortest = (float*)xMPI_Alloc_mem(nlocalverts * sizeof(float));
+//	int bfs_root_idx,i;
+//	if (!getenv("SKIP_BFS")) {
+//		clean_pred(&pred[0]); //user-provided function from bfs_implementation.c
+//		run_bfs(bfs_roots[0], &pred[0]); //warm-up
+//		if (!getenv("SKIP_VALIDATION")) {
+//			int64_t nedges=0;
+//			validate_result(1,&tg, nlocalverts, bfs_roots[0], pred,shortest,NULL);
+//		}//
 
+//		for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
+//			int64_t root = bfs_roots[bfs_root_idx];//
 
-	int bfs_root_idx,i;
-	if (!getenv("SKIP_BFS")) {
-		clean_pred(&pred[0]); //user-provided function from bfs_implementation.c
-		run_bfs(bfs_roots[0], &pred[0]); //warm-up
-		if (!getenv("SKIP_VALIDATION")) {
-			int64_t nedges=0;
-			validate_result(1,&tg, nlocalverts, bfs_roots[0], pred,shortest,NULL);
-		}
+//			if (rank == 0) fprintf(stderr, "Running BFS %d\n", bfs_root_idx);//
 
-		for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
-			int64_t root = bfs_roots[bfs_root_idx];
+//			clean_pred(&pred[0]); //user-provided function from bfs_implementation.c
+//			/* Do the actual BFS. */
+//			double bfs_start = MPI_Wtime();
+//			run_bfs(root, &pred[0]);
+//			double bfs_stop = MPI_Wtime();
+//			bfs_times[bfs_root_idx] = bfs_stop - bfs_start;
+//			if (rank == 0) fprintf(stderr, "Time for BFS %d is %f\n", bfs_root_idx, bfs_times[bfs_root_idx]);
+//			int64_t edge_visit_count=0;
+//			get_edge_count_for_teps(&edge_visit_count);
+//			edge_counts[bfs_root_idx] = (double)edge_visit_count;
+//			if (rank == 0) fprintf(stderr, "TEPS for BFS %d is %g\n", bfs_root_idx, edge_visit_count / bfs_times[bfs_root_idx]);//
 
-			if (rank == 0) fprintf(stderr, "Running BFS %d\n", bfs_root_idx);
+//			/* Validate result. */
+//			if (!getenv("SKIP_VALIDATION")) {
+//				if (rank == 0) fprintf(stderr, "Validating BFS %d\n", bfs_root_idx);//
 
-			clean_pred(&pred[0]); //user-provided function from bfs_implementation.c
-			/* Do the actual BFS. */
-			double bfs_start = MPI_Wtime();
-			run_bfs(root, &pred[0]);
-			double bfs_stop = MPI_Wtime();
-			bfs_times[bfs_root_idx] = bfs_stop - bfs_start;
-			if (rank == 0) fprintf(stderr, "Time for BFS %d is %f\n", bfs_root_idx, bfs_times[bfs_root_idx]);
-			int64_t edge_visit_count=0;
-			get_edge_count_for_teps(&edge_visit_count);
-			edge_counts[bfs_root_idx] = (double)edge_visit_count;
-			if (rank == 0) fprintf(stderr, "TEPS for BFS %d is %g\n", bfs_root_idx, edge_visit_count / bfs_times[bfs_root_idx]);
+//				double validate_start = MPI_Wtime();
+//				int validation_passed_one = validate_result(1,&tg, nlocalverts, root, pred,shortest,&edge_visit_count);
+//				double validate_stop = MPI_Wtime();//
 
-			/* Validate result. */
-			if (!getenv("SKIP_VALIDATION")) {
-				if (rank == 0) fprintf(stderr, "Validating BFS %d\n", bfs_root_idx);
+//				validate_times[bfs_root_idx] = validate_stop - validate_start;
+//				if (rank == 0) fprintf(stderr, "Validate time for BFS %d is %f\n", bfs_root_idx, validate_times[bfs_root_idx]);//
 
-				double validate_start = MPI_Wtime();
-				int validation_passed_one = validate_result(1,&tg, nlocalverts, root, pred,shortest,&edge_visit_count);
-				double validate_stop = MPI_Wtime();
+//				if (!validation_passed_one) {
+//					validation_passed = 0;
+//					if (rank == 0) fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
+//					break;
+//				}
+//			} else
+//				validate_times[bfs_root_idx] = -1;
+//		}//
 
-				validate_times[bfs_root_idx] = validate_stop - validate_start;
-				if (rank == 0) fprintf(stderr, "Validate time for BFS %d is %f\n", bfs_root_idx, validate_times[bfs_root_idx]);
+//	}
+//#ifdef SSSP
+//	double* sssp_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
+//	double* validate_times2 = (double*)xmalloc(num_bfs_roots * sizeof(double));//
 
-				if (!validation_passed_one) {
-					validation_passed = 0;
-					if (rank == 0) fprintf(stderr, "Validation failed for this BFS root; skipping rest.\n");
-					break;
-				}
-			} else
-				validate_times[bfs_root_idx] = -1;
-		}
+//	clean_shortest(shortest);
+//	clean_pred(pred);
+//	run_sssp(bfs_roots[0], &pred[0],shortest); //warm-up//
 
-	}
-#ifdef SSSP
-	double* sssp_times = (double*)xmalloc(num_bfs_roots * sizeof(double));
-	double* validate_times2 = (double*)xmalloc(num_bfs_roots * sizeof(double));
+//	for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
+//		int64_t root = bfs_roots[bfs_root_idx];//
 
-	clean_shortest(shortest);
-	clean_pred(pred);
-	run_sssp(bfs_roots[0], &pred[0],shortest); //warm-up
+//		if (rank == 0) fprintf(stderr, "Running SSSP %d\n", bfs_root_idx);//
 
-	for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
-		int64_t root = bfs_roots[bfs_root_idx];
+//		clean_pred(&pred[0]);
+//		clean_shortest(shortest);//
 
-		if (rank == 0) fprintf(stderr, "Running SSSP %d\n", bfs_root_idx);
+//		/* Do the actual SSSP. */
+//		double sssp_start = MPI_Wtime();
+//		run_sssp(root, &pred[0],shortest);
+//		double sssp_stop = MPI_Wtime();
+//		sssp_times[bfs_root_idx] = sssp_stop - sssp_start;
+//		int64_t edge_visit_count=0;
+//		get_edge_count_for_teps(&edge_visit_count);
+//		edge_counts[bfs_root_idx] = (double)edge_visit_count;
+//		if (rank == 0) fprintf(stderr, "Time for SSSP %d is %f\n", bfs_root_idx, sssp_times[bfs_root_idx]);
+//		if (rank == 0) fprintf(stderr, "TEPS for SSSP %d is %g\n", bfs_root_idx, edge_counts[bfs_root_idx] / sssp_times[bfs_root_idx]);//
 
-		clean_pred(&pred[0]);
-		clean_shortest(shortest);
+//		/* Validate result. */
+//		if (!getenv("SKIP_VALIDATION")) {
+//			if (rank == 0) fprintf(stderr, "Validating SSSP %d\n", bfs_root_idx);//
 
-		/* Do the actual SSSP. */
-		double sssp_start = MPI_Wtime();
-		run_sssp(root, &pred[0],shortest);
-		double sssp_stop = MPI_Wtime();
-		sssp_times[bfs_root_idx] = sssp_stop - sssp_start;
-		int64_t edge_visit_count=0;
-		get_edge_count_for_teps(&edge_visit_count);
-		edge_counts[bfs_root_idx] = (double)edge_visit_count;
-		if (rank == 0) fprintf(stderr, "Time for SSSP %d is %f\n", bfs_root_idx, sssp_times[bfs_root_idx]);
-		if (rank == 0) fprintf(stderr, "TEPS for SSSP %d is %g\n", bfs_root_idx, edge_counts[bfs_root_idx] / sssp_times[bfs_root_idx]);
+//			double validate_start = MPI_Wtime();
+//			int validation_passed_one = validate_result(0,&tg, nlocalverts, root, pred, shortest,&edge_visit_count);
+//			double validate_stop = MPI_Wtime();//
 
-		/* Validate result. */
-		if (!getenv("SKIP_VALIDATION")) {
-			if (rank == 0) fprintf(stderr, "Validating SSSP %d\n", bfs_root_idx);
+//			validate_times2[bfs_root_idx] = validate_stop - validate_start;
+//			if (rank == 0) fprintf(stderr, "Validate time for SSSP %d is %f\n", bfs_root_idx, validate_times2[bfs_root_idx]);//
 
-			double validate_start = MPI_Wtime();
-			int validation_passed_one = validate_result(0,&tg, nlocalverts, root, pred, shortest,&edge_visit_count);
-			double validate_stop = MPI_Wtime();
+//			if (!validation_passed_one) {
+//				validation_passed = 0;
+//				if (rank == 0) fprintf(stderr, "Validation failed for this SSSP root; skipping rest.\n");
+//				break;
+//			}
+//		} else {
+//			validate_times2[bfs_root_idx] = -1;
+//		}
+//	}//
 
-			validate_times2[bfs_root_idx] = validate_stop - validate_start;
-			if (rank == 0) fprintf(stderr, "Validate time for SSSP %d is %f\n", bfs_root_idx, validate_times2[bfs_root_idx]);
+//#endif
+//	MPI_Free_mem(pred);
+//#ifdef SSSP
+//	MPI_Free_mem(shortest);
+//#endif
+//	free(bfs_roots);
+//	free_graph_data_structure();//
 
-			if (!validation_passed_one) {
-				validation_passed = 0;
-				if (rank == 0) fprintf(stderr, "Validation failed for this SSSP root; skipping rest.\n");
-				break;
-			}
-		} else {
-			validate_times2[bfs_root_idx] = -1;
-		}
-	}
+//	if (tg.data_in_file) {
+//		MPI_File_close(&tg.edgefile);
+//#ifdef SSSP
+//		MPI_File_close(&tg.weightfile);
+//#endif    
+//	} else {
+//		free(tg.edgememory); tg.edgememory = NULL;
+//#ifdef SSSP
+//		free(tg.weightmemory); tg.weightmemory = NULL;
+//#endif
+//	}//
 
-#endif
-	MPI_Free_mem(pred);
-#ifdef SSSP
-	MPI_Free_mem(shortest);
-#endif
-	free(bfs_roots);
-	free_graph_data_structure();
+//	/* Print results. */
+//	if (rank == 0) {
+//		if (!validation_passed) {
+//			fprintf(stdout, "No results printed for invalid run.\n");
+//		} else {
+//			int i;
+//			//for (i = 0; i < num_bfs_roots; ++i) printf(" %g \n",edge_counts[i]);
+//			fprintf(stdout, "SCALE:                          %d\n", SCALE);
+//			fprintf(stdout, "edgefactor:                     %d\n", edgefactor);
+//			fprintf(stdout, "NBFS:                           %d\n", num_bfs_roots);
+//			fprintf(stdout, "graph_generation:               %g\n", make_graph_time);
+//			fprintf(stdout, "num_mpi_processes:              %d\n", size);
+//			fprintf(stdout, "construction_time:              %g\n", data_struct_time);
+//			volatile double stats[s_LAST];
+//			get_statistics(bfs_times, num_bfs_roots, stats);
+//			fprintf(stdout, "bfs  min_time:                  %g\n", stats[s_minimum]);
+//			fprintf(stdout, "bfs  firstquartile_time:        %g\n", stats[s_firstquartile]);
+//			fprintf(stdout, "bfs  median_time:               %g\n", stats[s_median]);
+//			fprintf(stdout, "bfs  thirdquartile_time:        %g\n", stats[s_thirdquartile]);
+//			fprintf(stdout, "bfs  max_time:                  %g\n", stats[s_maximum]);
+//			fprintf(stdout, "bfs  mean_time:                 %g\n", stats[s_mean]);
+//			fprintf(stdout, "bfs  stddev_time:               %g\n", stats[s_std]);
+//#ifdef SSSP
+//			get_statistics(sssp_times, num_bfs_roots, stats);
+//			fprintf(stdout, "sssp min_time:                  %g\n", stats[s_minimum]);
+//			fprintf(stdout, "sssp firstquartile_time:        %g\n", stats[s_firstquartile]);
+//			fprintf(stdout, "sssp median_time:               %g\n", stats[s_median]);
+//			fprintf(stdout, "sssp thirdquartile_time:        %g\n", stats[s_thirdquartile]);
+//			fprintf(stdout, "sssp max_time:                  %g\n", stats[s_maximum]);
+//			fprintf(stdout, "sssp mean_time:                 %g\n", stats[s_mean]);
+//			fprintf(stdout, "sssp stddev_time:               %g\n", stats[s_std]);
+//#endif
+//			get_statistics(edge_counts, num_bfs_roots, stats);
+//			fprintf(stdout, "min_nedge:                      %.11g\n", stats[s_minimum]);
+//			fprintf(stdout, "firstquartile_nedge:            %.11g\n", stats[s_firstquartile]);
+//			fprintf(stdout, "median_nedge:                   %.11g\n", stats[s_median]);
+//			fprintf(stdout, "thirdquartile_nedge:            %.11g\n", stats[s_thirdquartile]);
+//			fprintf(stdout, "max_nedge:                      %.11g\n", stats[s_maximum]);
+//			fprintf(stdout, "mean_nedge:                     %.11g\n", stats[s_mean]);
+//			fprintf(stdout, "stddev_nedge:                   %.11g\n", stats[s_std]);
+//			double* secs_per_edge = (double*)xmalloc(num_bfs_roots * sizeof(double));
+//			for (i = 0; i < num_bfs_roots; ++i) secs_per_edge[i] = bfs_times[i] / edge_counts[i];
+//			get_statistics(secs_per_edge, num_bfs_roots, stats);
+//			fprintf(stdout, "bfs  min_TEPS:                  %g\n", 1. / stats[s_maximum]);
+//			fprintf(stdout, "bfs  firstquartile_TEPS:        %g\n", 1. / stats[s_thirdquartile]);
+//			fprintf(stdout, "bfs  median_TEPS:               %g\n", 1. / stats[s_median]);
+//			fprintf(stdout, "bfs  thirdquartile_TEPS:        %g\n", 1. / stats[s_firstquartile]);
+//			fprintf(stdout, "bfs  max_TEPS:                  %g\n", 1. / stats[s_minimum]);
+//			fprintf(stdout, "bfs  harmonic_mean_TEPS:     !  %g\n", 1. / stats[s_mean]);
+//			/* Formula from:
+//			 * Title: The Standard Errors of the Geometric and Harmonic Means and
+//			 *        Their Application to Index Numbers
+//			 * Author(s): Nilan Norris
+//			 * Source: The Annals of Mathematical Statistics, Vol. 11, No. 4 (Dec., 1940), pp. 445-448
+//			 * Publisher(s): Institute of Mathematical Statistics
+//			 * Stable URL: http://www.jstor.org/stable/2235723
+//			 * (same source as in specification). */
+//			fprintf(stdout, "bfs  harmonic_stddev_TEPS:      %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(num_bfs_roots - 1)));
+//#ifdef SSSP
+//			for (i = 0; i < num_bfs_roots; ++i) secs_per_edge[i] = sssp_times[i] / edge_counts[i];
+//			get_statistics(secs_per_edge, num_bfs_roots, stats);
+//			fprintf(stdout, "sssp min_TEPS:                  %g\n", 1. / stats[s_maximum]);
+//			fprintf(stdout, "sssp firstquartile_TEPS:        %g\n", 1. / stats[s_thirdquartile]);
+//			fprintf(stdout, "sssp median_TEPS:               %g\n", 1. / stats[s_median]);
+//			fprintf(stdout, "sssp thirdquartile_TEPS:        %g\n", 1. / stats[s_firstquartile]);
+//			fprintf(stdout, "sssp max_TEPS:                  %g\n", 1. / stats[s_minimum]);
+//			fprintf(stdout, "sssp harmonic_mean_TEPS:     !  %g\n", 1. / stats[s_mean]);
+//			fprintf(stdout, "sssp harmonic_stddev_TEPS:      %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(num_bfs_roots - 1)));
+//#endif
+//			free(secs_per_edge); secs_per_edge = NULL;
+//			free(edge_counts); edge_counts = NULL;
+//			get_statistics(validate_times, num_bfs_roots, stats);
+//			fprintf(stdout, "bfs  min_validate:              %g\n", stats[s_minimum]);
+//			fprintf(stdout, "bfs  firstquartile_validate:    %g\n", stats[s_firstquartile]);
+//			fprintf(stdout, "bfs  median_validate:           %g\n", stats[s_median]);
+//			fprintf(stdout, "bfs  thirdquartile_validate:    %g\n", stats[s_thirdquartile]);
+//			fprintf(stdout, "bfs  max_validate:              %g\n", stats[s_maximum]);
+//			fprintf(stdout, "bfs  mean_validate:             %g\n", stats[s_mean]);
+//			fprintf(stdout, "bfs  stddev_validate:           %g\n", stats[s_std]);
+//#ifdef SSSP
+//			get_statistics(validate_times2, num_bfs_roots, stats);
+//			fprintf(stdout, "sssp min_validate:              %g\n", stats[s_minimum]);
+//			fprintf(stdout, "sssp firstquartile_validate:    %g\n", stats[s_firstquartile]);
+//			fprintf(stdout, "sssp median_validate:           %g\n", stats[s_median]);
+//			fprintf(stdout, "sssp thirdquartile_validate:    %g\n", stats[s_thirdquartile]);
+//			fprintf(stdout, "sssp max_validate:              %g\n", stats[s_maximum]);
+//			fprintf(stdout, "sssp mean_validate:             %g\n", stats[s_mean]);
+//			fprintf(stdout, "sssp stddev_validate:           %g\n", stats[s_std]);
+//#endif
+//#if 0
+//			for (i = 0; i < num_bfs_roots; ++i) {
+//				fprintf(stdout, "Run %3d:                        %g s, validation %g s\n", i + 1, bfs_times[i], validate_times[i]);
+//				fprintf(stdout, "Run %3d:                        %g s, validation %g s\n", i + 1, sssp_times[i], validate_times2[i]);
+//			}
+//#endif//
+//
 
-	if (tg.data_in_file) {
-		MPI_File_close(&tg.edgefile);
-#ifdef SSSP
-		MPI_File_close(&tg.weightfile);
-#endif    
-	} else {
-		free(tg.edgememory); tg.edgememory = NULL;
-#ifdef SSSP
-		free(tg.weightmemory); tg.weightmemory = NULL;
-#endif
-	}
-
-	/* Print results. */
-	if (rank == 0) {
-		if (!validation_passed) {
-			fprintf(stdout, "No results printed for invalid run.\n");
-		} else {
-			int i;
-			//for (i = 0; i < num_bfs_roots; ++i) printf(" %g \n",edge_counts[i]);
-			fprintf(stdout, "SCALE:                          %d\n", SCALE);
-			fprintf(stdout, "edgefactor:                     %d\n", edgefactor);
-			fprintf(stdout, "NBFS:                           %d\n", num_bfs_roots);
-			fprintf(stdout, "graph_generation:               %g\n", make_graph_time);
-			fprintf(stdout, "num_mpi_processes:              %d\n", size);
-			fprintf(stdout, "construction_time:              %g\n", data_struct_time);
-			volatile double stats[s_LAST];
-			get_statistics(bfs_times, num_bfs_roots, stats);
-			fprintf(stdout, "bfs  min_time:                  %g\n", stats[s_minimum]);
-			fprintf(stdout, "bfs  firstquartile_time:        %g\n", stats[s_firstquartile]);
-			fprintf(stdout, "bfs  median_time:               %g\n", stats[s_median]);
-			fprintf(stdout, "bfs  thirdquartile_time:        %g\n", stats[s_thirdquartile]);
-			fprintf(stdout, "bfs  max_time:                  %g\n", stats[s_maximum]);
-			fprintf(stdout, "bfs  mean_time:                 %g\n", stats[s_mean]);
-			fprintf(stdout, "bfs  stddev_time:               %g\n", stats[s_std]);
-#ifdef SSSP
-			get_statistics(sssp_times, num_bfs_roots, stats);
-			fprintf(stdout, "sssp min_time:                  %g\n", stats[s_minimum]);
-			fprintf(stdout, "sssp firstquartile_time:        %g\n", stats[s_firstquartile]);
-			fprintf(stdout, "sssp median_time:               %g\n", stats[s_median]);
-			fprintf(stdout, "sssp thirdquartile_time:        %g\n", stats[s_thirdquartile]);
-			fprintf(stdout, "sssp max_time:                  %g\n", stats[s_maximum]);
-			fprintf(stdout, "sssp mean_time:                 %g\n", stats[s_mean]);
-			fprintf(stdout, "sssp stddev_time:               %g\n", stats[s_std]);
-#endif
-			get_statistics(edge_counts, num_bfs_roots, stats);
-			fprintf(stdout, "min_nedge:                      %.11g\n", stats[s_minimum]);
-			fprintf(stdout, "firstquartile_nedge:            %.11g\n", stats[s_firstquartile]);
-			fprintf(stdout, "median_nedge:                   %.11g\n", stats[s_median]);
-			fprintf(stdout, "thirdquartile_nedge:            %.11g\n", stats[s_thirdquartile]);
-			fprintf(stdout, "max_nedge:                      %.11g\n", stats[s_maximum]);
-			fprintf(stdout, "mean_nedge:                     %.11g\n", stats[s_mean]);
-			fprintf(stdout, "stddev_nedge:                   %.11g\n", stats[s_std]);
-			double* secs_per_edge = (double*)xmalloc(num_bfs_roots * sizeof(double));
-			for (i = 0; i < num_bfs_roots; ++i) secs_per_edge[i] = bfs_times[i] / edge_counts[i];
-			get_statistics(secs_per_edge, num_bfs_roots, stats);
-			fprintf(stdout, "bfs  min_TEPS:                  %g\n", 1. / stats[s_maximum]);
-			fprintf(stdout, "bfs  firstquartile_TEPS:        %g\n", 1. / stats[s_thirdquartile]);
-			fprintf(stdout, "bfs  median_TEPS:               %g\n", 1. / stats[s_median]);
-			fprintf(stdout, "bfs  thirdquartile_TEPS:        %g\n", 1. / stats[s_firstquartile]);
-			fprintf(stdout, "bfs  max_TEPS:                  %g\n", 1. / stats[s_minimum]);
-			fprintf(stdout, "bfs  harmonic_mean_TEPS:     !  %g\n", 1. / stats[s_mean]);
-			/* Formula from:
-			 * Title: The Standard Errors of the Geometric and Harmonic Means and
-			 *        Their Application to Index Numbers
-			 * Author(s): Nilan Norris
-			 * Source: The Annals of Mathematical Statistics, Vol. 11, No. 4 (Dec., 1940), pp. 445-448
-			 * Publisher(s): Institute of Mathematical Statistics
-			 * Stable URL: http://www.jstor.org/stable/2235723
-			 * (same source as in specification). */
-			fprintf(stdout, "bfs  harmonic_stddev_TEPS:      %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(num_bfs_roots - 1)));
-#ifdef SSSP
-			for (i = 0; i < num_bfs_roots; ++i) secs_per_edge[i] = sssp_times[i] / edge_counts[i];
-			get_statistics(secs_per_edge, num_bfs_roots, stats);
-			fprintf(stdout, "sssp min_TEPS:                  %g\n", 1. / stats[s_maximum]);
-			fprintf(stdout, "sssp firstquartile_TEPS:        %g\n", 1. / stats[s_thirdquartile]);
-			fprintf(stdout, "sssp median_TEPS:               %g\n", 1. / stats[s_median]);
-			fprintf(stdout, "sssp thirdquartile_TEPS:        %g\n", 1. / stats[s_firstquartile]);
-			fprintf(stdout, "sssp max_TEPS:                  %g\n", 1. / stats[s_minimum]);
-			fprintf(stdout, "sssp harmonic_mean_TEPS:     !  %g\n", 1. / stats[s_mean]);
-			fprintf(stdout, "sssp harmonic_stddev_TEPS:      %g\n", stats[s_std] / (stats[s_mean] * stats[s_mean] * sqrt(num_bfs_roots - 1)));
-#endif
-			free(secs_per_edge); secs_per_edge = NULL;
-			free(edge_counts); edge_counts = NULL;
-			get_statistics(validate_times, num_bfs_roots, stats);
-			fprintf(stdout, "bfs  min_validate:              %g\n", stats[s_minimum]);
-			fprintf(stdout, "bfs  firstquartile_validate:    %g\n", stats[s_firstquartile]);
-			fprintf(stdout, "bfs  median_validate:           %g\n", stats[s_median]);
-			fprintf(stdout, "bfs  thirdquartile_validate:    %g\n", stats[s_thirdquartile]);
-			fprintf(stdout, "bfs  max_validate:              %g\n", stats[s_maximum]);
-			fprintf(stdout, "bfs  mean_validate:             %g\n", stats[s_mean]);
-			fprintf(stdout, "bfs  stddev_validate:           %g\n", stats[s_std]);
-#ifdef SSSP
-			get_statistics(validate_times2, num_bfs_roots, stats);
-			fprintf(stdout, "sssp min_validate:              %g\n", stats[s_minimum]);
-			fprintf(stdout, "sssp firstquartile_validate:    %g\n", stats[s_firstquartile]);
-			fprintf(stdout, "sssp median_validate:           %g\n", stats[s_median]);
-			fprintf(stdout, "sssp thirdquartile_validate:    %g\n", stats[s_thirdquartile]);
-			fprintf(stdout, "sssp max_validate:              %g\n", stats[s_maximum]);
-			fprintf(stdout, "sssp mean_validate:             %g\n", stats[s_mean]);
-			fprintf(stdout, "sssp stddev_validate:           %g\n", stats[s_std]);
-#endif
-#if 0
-			for (i = 0; i < num_bfs_roots; ++i) {
-				fprintf(stdout, "Run %3d:                        %g s, validation %g s\n", i + 1, bfs_times[i], validate_times[i]);
-				fprintf(stdout, "Run %3d:                        %g s, validation %g s\n", i + 1, sssp_times[i], validate_times2[i]);
-			}
-#endif
-
-
-		}
-	}
-	free(bfs_times);
-	free(validate_times);
-#ifdef SSSP
-	free(sssp_times);
-	free(validate_times2);
-#endif
+//		}
+//	}
+//	free(bfs_times);
+//	free(validate_times);
+//#ifdef SSSP
+//	free(sssp_times);
+//	free(validate_times2);
+//#endif
 	cleanup_globals();
 	aml_finalize(); //includes MPI_Finalize()
 	return 0;

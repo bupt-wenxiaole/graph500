@@ -10,6 +10,7 @@
 // Graph500: Kernel 1: CRS construction
 // Simple two-pass CRS construction using Active Messages
 
+
 #include "common.h"
 #include "csr_reference.h"
 #include "aml.h"
@@ -21,6 +22,9 @@
 #include <stdio.h>
 #include <assert.h>
 #include <search.h>
+#include <parmetisbin.h>
+#define NCON    1
+#define NPARTS  4
 
 int64_t nverts_known = 0;
 int *degrees;
@@ -81,6 +85,68 @@ void send_full_edge (int64_t src,int64_t tgt) {
 	aml_send(vloc,1,12,pe);
 }
 #endif
+
+void ParMetis_GPart(MPI_Comm comm, int* xadj, int xadjlen, int64_t* adjcny, int adjlen, int* vtxdist, int vtxlen, idx_t* part) {
+    idx_t ncon, nparts, npes, mype, edgecut;
+    /* graph_t graph, mgraph; */
+    idx_t numflag = 0, wgtflag = 0, options[10];
+    real_t *tpwgts = NULL, ubvec[MAXNCON];
+    int i,j;
+    //for casting int64_t into int
+    idx_t* adjcny_new = (idx_t *)malloc(adjlen * sizeof(idx_t));
+    for(i =0; i < adjlen; i++) {
+        adjcny_new[i] = (idx_t)adjcny[i];
+    }
+    //xadj = (idx_t*)xadj;
+    printf("%d\n", sizeof(idx_t));
+    //vtxdist = (idx_t*)vtxdist;
+    gkMPI_Comm_size(comm, &npes);
+    gkMPI_Comm_rank(comm, &mype);
+
+    int myid, numprocs, namelen;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myid);  /* get current process id */
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+
+    /* ParallelReadGraph(&graph, filename, comm);*/
+
+    gkMPI_Barrier(comm);
+    nparts = NPARTS;
+    ncon = NCON;
+
+    /* tpwgts = (real_t*)malloc((ncon * nparts + 3) * sizeof(real_t));*/
+    tpwgts = rmalloc(ncon * nparts * 2, "TestParMetis_V3: tpwgts");
+    rset(MAXNCON, 1.05, ubvec);
+
+    /*graph.vwgt = ismalloc(graph.nvtxs * 5, 1, "TestParMetis_GPart: vwgt");*/
+
+
+    /*======================================================================
+     *     / ParMETIS_V3_PartKway
+     *         /=======================================================================*/
+    options[0] = 1;
+    options[1] = 3;
+    options[2] = 1;
+    wgtflag = 0;
+    numflag = 0;
+
+    if (mype == 0)
+        printf("\nParMETIS_V3_PartKway with ncon: %"PRIDX", nparts: %"PRIDX"\n", ncon, nparts);
+
+    rset(nparts * ncon, 1.0 / (real_t) nparts, tpwgts);
+    ParMETIS_V3_PartKway((idx_t*)vtxdist, (idx_t*)xadj, (idx_t*)adjcny_new, NULL,
+            NULL, &wgtflag, &numflag, &ncon, &nparts, tpwgts, ubvec, options, &edgecut, part, &comm);
+    if(mype == 0){
+    	printf("edgecut:%d\n", edgecut);
+    }
+    
+    j = 0;
+    for (i = vtxdist[myid]; i < vtxdist[myid + 1] ; i++) {
+        printf("%d %d\n", i, part[j]);
+        j++;
+    }
+    free(adjcny_new);
+}
+
 
 void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* const g) {
 	g->tg = tg;
@@ -189,18 +255,36 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	} ITERATE_TUPLE_GRAPH_END;
 
 	free(degrees);
+	//use parmetis and csr array partition graph
+	idx_t mype, npes;
+	MPI_Comm comm_temp;
+	MPI_Comm_dup(MPI_COMM_WORLD, &comm_temp);
+	gkMPI_Comm_size(comm_temp, &npes);
+    gkMPI_Comm_rank(comm_temp, &mype);
+    int* vtxdist = malloc((num_pes() + 1)*sizeof(int));
+    idx_t* part = (idx_t *) malloc((nlocalverts + 3) * sizeof(idx_t));
+    for(j = 0; j <= num_pes(); ++j) {
+		vtxdist[j] = j*SIZE_PER_RANK;
+	}
+    ParMetis_GPart(comm_temp, rowstarts, nlocalverts + 1, column, nlocaledges, vtxdist, num_pes() + 1, part);
+    printf("end partition\n");
 	fprintf(csrformat, "xadj\n");
+	fprintf(csrformat, "%d\n", nlocalverts + 1);
 	for (j = 0; j < nlocalverts + 1; ++j) {
 		fprintf(csrformat, "%d\n", rowstarts[j]);
 	}
 	fprintf(csrformat, "adjncy\n");
+	fprintf(csrformat, "%d\n", nlocaledges);
 	for(j = 0; j < nlocaledges; ++j) {
 		fprintf(csrformat, "%lld\n ", column[j]);
 	}
 	fprintf(csrformat, "vtxdist\n");
-	for(j = 0; j <= num_pes(); ++j) {
-		fprintf(csrformat, "%lld\n", j*SIZE_PER_RANK);
-	}
+	fprintf(csrformat, "%d\n", num_pes() + 1);
+    for(j = 0; j <= num_pes(); ++j) {
+        fprintf(csrformat, "%lld\n", j*SIZE_PER_RANK);
+    }
+
+	
 }
 
 void free_oned_csr_graph(oned_csr_graph* const g) {
