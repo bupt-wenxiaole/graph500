@@ -24,7 +24,6 @@
 #include <search.h>
 #include <parmetisbin.h>
 #define NCON    1
-#define NPARTS  4
 
 int64_t nverts_known = 0;
 int *degrees;
@@ -110,7 +109,7 @@ void ParMetis_GPart(MPI_Comm comm, int* xadj, int xadjlen, int64_t* adjcny, int 
     /* ParallelReadGraph(&graph, filename, comm);*/
 
     gkMPI_Barrier(comm);
-    nparts = NPARTS;
+    nparts = num_pes();
     ncon = NCON;
 
     /* tpwgts = (real_t*)malloc((ncon * nparts + 3) * sizeof(real_t));*/
@@ -268,6 +267,16 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	}
     ParMetis_GPart(comm_temp, rowstarts, nlocalverts + 1, column, nlocaledges, vtxdist, num_pes() + 1, part);
     printf("end partition\n");
+    int subdomainNum = num_pes();
+    int64_t subdomainVertexNum[subdomainNum];
+    memset(subdomainVertexNum, 0, sizeof(subdomainVertexNum));
+    for(j = 0; j < nlocalverts; ++j) {
+        subdomainVertexNum[part[j]]++; 
+    }
+    for(j = 0; j < subdomainNum; ++j) {
+        aml_long_allsum(subdomainVertexNum[j]);
+    }
+/*
 	fprintf(csrformat, "xadj\n");
 	fprintf(csrformat, "%d\n", nlocalverts + 1);
 	for (j = 0; j < nlocalverts + 1; ++j) {
@@ -283,8 +292,21 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
     for(j = 0; j <= num_pes(); ++j) {
         fprintf(csrformat, "%lld\n", j*SIZE_PER_RANK);
     }
+*/
+    //aml_register_handler(queryrequesthndl,1);
+    //third pass, send query src and tgt partition's request to other rank
+    //first, go through all the CSR adjcny's elements and caculate the owner of each elements by vtxdist
+    //第一轮，每个rank遍历自己CSR中adjcny数组中的每个元素，查的就是这个数组中每个元素的归属
+    //这轮pass只能发送查请求，那么对面只是接受下这个查请求，这时候需要保存（哪个rank 查哪个点这样的pair）
+    //注意这里的内存组织结构，这里是主要的内存消耗区域  
 
-	
+    //开始下一轮pass, 下一轮pass根据上一轮保存的那个点的pair查自己的part数组，然后向发起查询请求的rank发送回去发起rank的查询
+    //这时候每个rank的接受handler接到这个reply后保存自己要查的点的rank。
+    //开始下一轮pass, 下一轮pass已经知道了自己这边所有src和tgt的归属，所以直接把这条边发给需要的归属地，并在发送时标识最后dump在那个文件中
+    //这轮pass接收到边之后直接写文件，根据标识往进去写（这个思路同样用在hash分图里）
+
+
+
 }
 
 void free_oned_csr_graph(oned_csr_graph* const g) {
