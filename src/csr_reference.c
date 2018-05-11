@@ -38,7 +38,7 @@ struct crossedge{
 	int64_t gtgt;
 	int srcowner;
 };
-struct crossedge* tmpbuf;
+//struct crossedge* tmpbuf;
 float *crossweights;
 //this function is needed for roots generation
 int isisolated(int64_t v) {
@@ -77,22 +77,23 @@ void fulledgehndl(int frompe,void* data,int sz) {
 		#ifdef SSSP
 		sprintf(edgetuple, "%lld %lld %d %f", gsrc, gtgt, tgtowner, w);
 		fprintf(subgraphFO, "%s\n", edgetuple);
-		struct crossedge edge;
+		/*struct crossedge edge;
 		edge.gsrc = gsrc;
 		edge.gtgt = gtgt;
 		edge.srcowner = srcowner;
 		tmpbuf[nedges_boarder] = edge;
-		crossweights[nedges_boarder++] = w;
+		crossweights[nedges_boarder++] = w;*/
 		#else
 		sprintf(edgetuple, "%lld %lld %d", gsrc, gtgt, tgtowner);
 		fprintf(subgraphFO, "%s\n", edgetuple);
-		struct crossedge edge;
+		/*struct crossedge edge;
 		edge.gsrc = gsrc;
 		edge.gtgt = gtgt;
 		edge.srcowner = srcowner;
-		tmpbuf[nedges_boarder++] = edge;
+		tmpbuf[nedges_boarder++] = edge;*/
 		#endif
 	}
+
 
 }
 //edgedumphndl的内容merge到fulledgehndl中去
@@ -218,10 +219,10 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	g->weights = weights;
 	aml_barrier();
 #endif
-	tmpbuf=xcalloc(nlocaledges+1,sizeof(struct crossedge));
+	//tmpbuf=xcalloc(nlocaledges+1,sizeof(struct crossedge));
 	aml_barrier();
 #ifdef SSSP
-	crossweights=xcalloc(nlocaledges+1,sizeof(float));
+	//crossweights=xcalloc(nlocaledges+1,sizeof(float));
 	aml_barrier();
 #endif
 	//long allocatededges=colalloc;
@@ -252,34 +253,32 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	//Third pass, transfer the across rank edge to it's owner rank according with target index
 	aml_register_handler(dumphndl,1);
 	int srcowner = my_pe();
-	assert(nedges_boarder <= nlocaledges);
-	for(k = 0; k < nedges_boarder; ++k) {
+	//assert(nedges_boarder <= nlocaledges);
+	for(i = 0; i < nlocalverts; i++) {
+		for(j = g->rowstarts[i]; j <= g->rowstarts[i + 1]; j++) {
+			int64_t gsrc, gdst;
+			gsrc = VERTEX_TO_GLOBAL(srcowner, i);
+			gdst = g->column[j];
+			int tgtowner = VERTEX_OWNER(gdst);
 #ifdef SSSP
-		//printf("send edge gsrc:%lld gtgt %lld srcowner %lld weight %f, the %lldth send,nedges_boarder %lld, my rank is %d\n",
-		 //tmpbuf[k].gsrc, tmpbuf[k].gtgt, tmpbuf[k].srcowner, crossweights[k], k, nedges_boarder, my_pe());
-		int vgolable[6];
-		memcpy(vgolable,&tmpbuf[k].gsrc,8);
-		memcpy(vgolable+2,&tmpbuf[k].gtgt,8);
-		memcpy(vgolable+4,&tmpbuf[k].srcowner,4);
-		memcpy(vgolable+5,&crossweights[k],4);
-		int tgtowner = VERTEX_OWNER(tmpbuf[k].gtgt);
-		aml_send(vgolable,1,24,tgtowner);
-		//send this edge tuple to Ftgtrank
-#else 
-		int vgolable[5];
-		memcpy(vgolable,&tmpbuf[k].gsrc,8);
-		memcpy(vgolable+2,&tmpbuf[k].gtgt,8);
-		memcpy(vgolable+4,&tmpbuf[k].srcowner,4);
-		int tgtowner = VERTEX_OWNER(tmpbuf[k].gtgt);
-		aml_send(vgolable,1,20,tgtowner);
+//printf("send edge gsrc:%lld gtgt %lld srcowner %lld weight %f, the %lldth send,nedges_boarder %lld, my rank is %d\n",
+// tmpbuf[k].gsrc, tmpbuf[k].gtgt, tmpbuf[k].srcowner, crossweights[k], k, nedges_boarder, my_pe());
+		    int vgolable[6];
+		    memcpy(vgolable,&gsrc,8);
+		    memcpy(vgolable+2,&gdst,8);
+		    memcpy(vgolable+4,&srcowner,4);
+		    memcpy(vgolable+5,&g->weights[j],4);
+		    aml_send(vgolable,1,24,tgtowner);
+#else
+			int vgolable[5];
+			memcpy(vgolable,&gsrc,8);
+			memcpy(vgolable+2,&gdst,8);
+			memcpy(vgolable+4,&srcowner,4);
+			aml_send(vgolable,1,20,tgtowner);
 #endif
-
+		}
 	}
 	aml_barrier();
-	free(tmpbuf);
-#ifdef SSSP
-	free(crossweights);
-#endif
 }
 
 void free_oned_csr_graph(oned_csr_graph* const g) {
