@@ -255,7 +255,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	int srcowner = my_pe();
 	//assert(nedges_boarder <= nlocaledges);
 	for(i = 0; i < nlocalverts; i++) {
-		for(j = g->rowstarts[i]; j <= g->rowstarts[i + 1]; j++) {
+		for(j = g->rowstarts[i]; j < g->rowstarts[i + 1]; j++) {
 			int64_t gsrc, gdst;
 			gsrc = VERTEX_TO_GLOBAL(srcowner, i);
 			gdst = g->column[j];
