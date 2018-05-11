@@ -250,6 +250,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 		aml_barrier();
 	} ITERATE_TUPLE_GRAPH_END;
 	free(degrees);
+	aml_barrier();
 	//Third pass, transfer the across rank edge to it's owner rank according with target index
 	aml_register_handler(dumphndl,1);
 	int srcowner = my_pe();
@@ -258,7 +259,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 		for(j = g->rowstarts[i]; j < g->rowstarts[i + 1]; j++) {
 			int64_t gsrc, gdst;
 			gsrc = VERTEX_TO_GLOBAL(srcowner, i);
-			gdst = g->column[j];
+			gdst = COLUMN(j);
 
 			printf("src:%lld  dst:%lld\n", gsrc, gdst);
 			int tgtowner = VERTEX_OWNER(gdst);
