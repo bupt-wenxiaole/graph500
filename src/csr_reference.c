@@ -259,6 +259,8 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 			int64_t gsrc, gdst;
 			gsrc = VERTEX_TO_GLOBAL(srcowner, i);
 			gdst = g->column[j];
+
+			printf("src:%lld  dst:%lld\n", gsrc, gdst);
 			int tgtowner = VERTEX_OWNER(gdst);
 #ifdef SSSP
 //printf("send edge gsrc:%lld gtgt %lld srcowner %lld weight %f, the %lldth send,nedges_boarder %lld, my rank is %d\n",
