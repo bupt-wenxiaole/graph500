@@ -444,13 +444,13 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	//init file handler for split big graph for DRONE.
 	//use full path on NFS
 	char subgraphpath[100];
-	sprintf(subgraphpath, "/mnt/nfs/zpltys/test/G.%d", myproc);
+	sprintf(subgraphpath, "/mnt/nfs/xwen/temp/G.%d", myproc);
 	subgraph = fopen(subgraphpath, "w");
 	char FIpath[100];
-	sprintf(FIpath, "/mnt/nfs/zpltys/test/F%d.I", myproc);
+	sprintf(FIpath, "/mnt/nfs/xwen/temp/F%d.I", myproc);
 	subgraphFI = fopen(FIpath, "w");
 	char FOpath[100];
-	sprintf(FOpath, "/mnt/nfs/zpltys/test/F%d.O", myproc);
+	sprintf(FOpath, "/mnt/nfs/xwen/temp/F%d.O", myproc);
 	subgraphFO = fopen(FOpath, "w");
 	return 0;
 }
