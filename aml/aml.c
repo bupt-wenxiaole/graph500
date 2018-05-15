@@ -130,8 +130,9 @@ static char recvbuf[AGGR*NRECV];
 static MPI_Request rqrecv[NRECV];
 
 unsigned long long nbytes_sent,nbytes_rcvd;
-FILE* rangepartition;
-FILE* csrformat;
+FILE* subgraph;
+FILE* subgraphFO;
+FILE* subgraphFI;
 static char *sendbuf_intra;
 static int *sendsize_intra;
 static ushort *acks_intra;
@@ -430,13 +431,17 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 		MPI_Isend( NULL, 0, MPI_CHAR, MPI_PROC_NULL, 0, comm, rqsend+j );
 		activebuf[j]=num_groups+j;
 	}
+	//init file handler for split big graph for DRONE.
 	//use full path on NFS
-	char rangepartitionpath[100];
-	sprintf(rangepartitionpath, "/mnt/nfs/xwen/generate_graph/P.%d", myproc);
-	rangepartition = fopen(rangepartitionpath, "w");
-	char csrformatpath[100];
-	sprintf(csrformatpath, "/mnt/nfs/xwen/generate_graph/CSR.%d", myproc);
-	csrformat = fopen(csrformatpath, "w");
+	char subgraphpath[100];
+	sprintf(subgraphpath, "/mnt/nfs/xwen/generate_graph/G.%d", myproc);
+	subgraph = fopen(subgraphpath, "w");
+	char FIpath[100];
+	sprintf(FIpath, "/mnt/nfs/xwen/generate_graph/F%d.I", myproc);
+	subgraphFI = fopen(FIpath, "w");
+	char FOpath[100];
+	sprintf(FOpath, "/mnt/nfs/xwen/generate_graph/F%d.O", myproc);
+	subgraphFO = fopen(FOpath, "w");
 	return 0;
 }
 
