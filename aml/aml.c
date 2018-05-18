@@ -434,14 +434,17 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	//init file handler for split big graph for DRONE.
 	//use full path on NFS
 	char subgraphpath[100];
-	sprintf(subgraphpath, "/mnt/nfs/xwen/generate_graph/G.%d", myproc);
-	subgraph = fopen(subgraphpath, "w");
-	char FIpath[100];
-	sprintf(FIpath, "/mnt/nfs/xwen/generate_graph/F%d.I", myproc);
-	subgraphFI = fopen(FIpath, "w");
-	char FOpath[100];
-	sprintf(FOpath, "/mnt/nfs/xwen/generate_graph/F%d.O", myproc);
-	subgraphFO = fopen(FOpath, "w");
+        //sprintf(subgraphpath, "/mnt/nfs/xwen/generate_graph/G.%d", myproc);
+        sprintf(subgraphpath, "/home/xwen/graph/%d/G.%d",num_procs, myproc);
+        subgraph = fopen(subgraphpath, "w");
+        char FIpath[100];
+        //sprintf(FIpath, "/mnt/nfs/xwen/generate_graph/F%d.I", myproc);
+        sprintf(FIpath, "/home/xwen/graph/%d/F%d.I", num_procs, myproc);
+                  subgraphFI = fopen(FIpath, "w");
+                            char FOpath[100];
+                                //sprintf(FOpath, "/mnt/nfs/xwen/generate_graph/F%d.O", myproc);
+                                    sprintf(FOpath, "/home/xwen/graph/%d/F%d.O", num_procs, myproc);
+                                        subgraphFO = fopen(FOpath, "w");
 	return 0;
 }
 

@@ -65,10 +65,8 @@ ListNode* addNode(ListNode** head, int vcolumnID, int queryPE) {
     if(*head == NULL) {
         *head = node; 
     }else {
-        ListNode* tmp = *head;
-        while(tmp -> next)
-            tmp = tmp -> next;
-        tmp->next = node;
+        node -> next = *head;
+        *head = node;
     }
 }
 void freelist(ListNode* head) {
@@ -106,7 +104,7 @@ void queryrequesthndl(int from, void* data, int sz){
     int64_t v = *(int64_t*)data;
     int vloc = VERTEX_LOCAL(v);
     int columnindex = *((int*)(data+8));
-    addNode(&queryinfolist[vloc], columnindex, from);
+    addNode(&queryinfolist[vloc], columnindex, from); 
 }
 void queryreplyhndl(int from, void* data, int sz){
     int columnindex = *(int*)data;
@@ -126,7 +124,9 @@ void dumpedgehndl(int from, void* data, int sz) {
         char edgetuple[100];
         sprintf(edgetuple, "%lld %lld %d", src, tgt, tgtdomain);
         fprintf(subgraphFO, "%s\n", edgetuple);
-        fprintf(subgraphFI, "%s\n", edgetuple);
+        char edgetuple1[100];
+        sprintf(edgetuple1, "%lld %lld %d", tgt, src, tgtdomain);
+        fprintf(subgraphFI, "%s\n", edgetuple1);
     }
 
 }
@@ -376,13 +376,13 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
     for(j = 0; j < nlocalverts; ++j) {
         ListNode* temp = queryinfolist[j];
         if(temp == NULL) {
-            printf("this vertex no process query: %d, my pe is %d\n", j, my_pe());
+            //printf("this vertex no process query: %d, my pe is %d\n", j, my_pe());
         }else {
             while(temp != NULL){
                 int columnindex = temp->val.vcolumnID;
                 int querype = temp->val.queryPE;
                 int replySubdomain = part[j];
-		printf("send_queryreply pe:%d\n", querype);
+	//	        printf("send_queryreply pe:%d\n", querype);
                 send_queryreply(columnindex, replySubdomain, querype);
                 temp = temp -> next;
             }
@@ -401,7 +401,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
             int64_t tgt = column[k];
             int srcdomain = part[j];
             int tgtdomain = columndomain[k];
-	    printf("send_dumpedge pe:%d\n", srcdomain);
+	 //       printf("send_dumpedge pe:%d\n", srcdomain);
             send_dumpedge(src, tgt, tgtdomain, srcdomain);
         }
     }
