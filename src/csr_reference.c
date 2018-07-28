@@ -175,24 +175,24 @@ void send_full_edge (int64_t src,int64_t tgt) {
 }
 #endif
 
-void ParMetis_GPart(MPI_Comm comm, int* xadj, int xadjlen, int64_t* adjcny, int adjlen, int* vtxdist, int vtxlen, idx_t* part) {
+void ParMetis_GPart(MPI_Comm comm, idx_t* xadj, idx_t xadjlen, idx_t* adjncy, idx_t adjlen, idx_t* vtxdist, idx_t vtxlen, idx_t* part) {
     idx_t ncon, nparts, npes, mype, edgecut;
     /* graph_t graph, mgraph; */
     idx_t numflag = 0, wgtflag = 0, options[10];
     real_t *tpwgts = NULL, ubvec[MAXNCON];
     int i,j;
     //for casting int64_t into int
-    idx_t* adjcny_new = (idx_t *)malloc(adjlen * sizeof(idx_t));
-    for(i =0; i < adjlen; i++) {
-        adjcny_new[i] = (idx_t)adjcny[i];
-    }
+    //idx_t* adjcny_new = (idx_t *)malloc(adjlen * sizeof(idx_t));
+    //for(i =0; i < adjlen; i++) {
+    //    adjcny_new[i] = (idx_t)adjncy[i];
+    //}
     //xadj = (idx_t*)xadj;
     printf("%d\n", sizeof(idx_t));
     //vtxdist = (idx_t*)vtxdist;
     gkMPI_Comm_size(comm, &npes);
     gkMPI_Comm_rank(comm, &mype);
 
-    int myid, numprocs, namelen;
+    int myid, numprocs;
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);  /* get current process id */
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 
@@ -202,13 +202,9 @@ void ParMetis_GPart(MPI_Comm comm, int* xadj, int xadjlen, int64_t* adjcny, int 
     nparts = num_pes();
     ncon = NCON;
 
-    /* tpwgts = (real_t*)malloc((ncon * nparts + 3) * sizeof(real_t));*/
+//for(nparts = 2; nparts <= num_pes(); nparts *= 2) {
     tpwgts = rmalloc(ncon * nparts * 2, "TestParMetis_V3: tpwgts");
     rset(MAXNCON, 1.05, ubvec);
-
-    /*graph.vwgt = ismalloc(graph.nvtxs * 5, 1, "TestParMetis_GPart: vwgt");*/
-
-
     /*======================================================================
      *     / ParMETIS_V3_PartKway
      *         /=======================================================================*/
@@ -222,18 +218,20 @@ void ParMetis_GPart(MPI_Comm comm, int* xadj, int xadjlen, int64_t* adjcny, int 
         printf("\nParMETIS_V3_PartKway with ncon: %"PRIDX", nparts: %"PRIDX"\n", ncon, nparts);
 
     rset(nparts * ncon, 1.0 / (real_t) nparts, tpwgts);
-    ParMETIS_V3_PartKway((idx_t*)vtxdist, (idx_t*)xadj, (idx_t*)adjcny_new, NULL,
+    ParMETIS_V3_PartKway(vtxdist, xadj, adjncy, NULL,
             NULL, &wgtflag, &numflag, &ncon, &nparts, tpwgts, ubvec, options, &edgecut, part, &comm);
+    //free(tpwgts);
+//}
     if(mype == 0){
         printf("edgecut:%d\n", edgecut);
     }
     
     j = 0;
     for (i = vtxdist[myid]; i < vtxdist[myid + 1] ; i++) {
-        printf("%d %d\n", i, part[j]);
+        //printf("%d %d\n", i, part[j]);
         j++;
     }
-    free(adjcny_new);
+    //free(adjcny_new);
 }
 
 
@@ -267,7 +265,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
     nglobalverts=nverts_known+1;
     g->nglobalverts = nglobalverts;
     printf("all max nglobalverts %lld\n", nglobalverts);
-    size_t nlocalverts = (size_t)DIV_SIZE(nglobalverts + num_pes() - 1 - my_pe());
+    idx_t nlocalverts = (idx_t)DIV_SIZE(nglobalverts + num_pes() - 1 - my_pe());
     g->nlocalverts = nlocalverts;
 
     //graph stats printing
@@ -298,7 +296,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
     g->notisolated=g->nglobalverts-isolated;
 #endif
     printf("size of rowstarts %d\n", nlocalverts);  
-    unsigned int *rowstarts = xmalloc((nlocalverts + 1) * sizeof(int));
+    idx_t *rowstarts = xmalloc((nlocalverts + 1) * sizeof(idx_t));
     g->rowstarts = rowstarts;
 
     rowstarts[0] = 0;
@@ -307,10 +305,10 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
         degrees[i] = rowstarts[i];
     }
 
-    size_t nlocaledges = rowstarts[nlocalverts];
+    idx_t nlocaledges = rowstarts[nlocalverts];
     g->nlocaledges = nlocaledges;
 
-    int64_t colalloc = BYTES_PER_VERTEX*nlocaledges;
+    idx_t colalloc = BYTES_PER_VERTEX*nlocaledges;
     colalloc += (4095);
     colalloc /= 4096;
     colalloc *= 4096;
@@ -350,12 +348,12 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
     MPI_Comm_dup(MPI_COMM_WORLD, &comm_temp);
     gkMPI_Comm_size(comm_temp, &npes);
     gkMPI_Comm_rank(comm_temp, &mype);
-    int* vtxdist = malloc((num_pes() + 1)*sizeof(int));
+    idx_t* vtxdist = malloc((num_pes() + 1)*sizeof(idx_t));
     idx_t* part = (idx_t *) malloc((nlocalverts + 3) * sizeof(idx_t));
     for(j = 0; j <= num_pes(); ++j) {
         vtxdist[j] = j*SIZE_PER_RANK;    
     }
-    ParMetis_GPart(comm_temp, rowstarts, nlocalverts + 1, column, nlocaledges, vtxdist, num_pes() + 1, part);
+    ParMetis_GPart(comm_temp, rowstarts, nlocalverts + 1,(idx_t*)column, nlocaledges, vtxdist, num_pes() + 1, part);
     printf("end partition\n");
     //two rounds one-side message 
     queryinfolist = (ListNode**)malloc(nlocalverts * sizeof(ListNode*));
