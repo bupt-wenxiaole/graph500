@@ -71,7 +71,9 @@ static char recvbuf[AGGR*NRECV];
 static MPI_Request rqrecv[NRECV];
 
 unsigned long long nbytes_sent,nbytes_rcvd;
-
+FILE* subgraph;
+FILE* subgraphFO;
+FILE* subgraphFI;
 static char *sendbuf_intra;
 static int *sendsize_intra;
 static ushort *acks_intra;
@@ -204,6 +206,7 @@ inline void flush_buffer_intra( int node ) {
 		aml_poll_intra();
 		MPI_Testany(NSEND_intra,rqsend_intra,&index,&flag,&stsend);
 	}
+	//printf("I am sending message %d\n", myproc);
 	MPI_Isend( SENDSOURCE_intra(node), sendsize_intra[node], MPI_CHAR,
 			node, acks_intra[node], comm_intra, rqsend_intra+index );
 	if (sendsize_intra[node] > 0) ack_intra++;
@@ -273,13 +276,16 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	char (*host_names)[MPI_MAX_PROCESSOR_NAME];
 	int namelen,bytes,n,color;
 	MPI_Get_processor_name(host_name,&namelen);
-
+	//printf("my host name is%s, my rank is %d\n", host_name, myproc);
 	bytes = num_procs * sizeof(char[MPI_MAX_PROCESSOR_NAME]);
 	host_names = (char (*)[MPI_MAX_PROCESSOR_NAME]) malloc(bytes);
 	strcpy(host_names[myproc], host_name);
 	for (n=0; n<num_procs; n++)
 		MPI_Bcast(&(host_names[n]),MPI_MAX_PROCESSOR_NAME, MPI_CHAR, n, MPI_COMM_WORLD);
 	qsort(host_names, num_procs, sizeof(char[MPI_MAX_PROCESSOR_NAME]), stringCmp);
+	//printf("after sort, my rank is %d\n", myproc);
+	//for (n=0; n<num_procs; n++)
+	//	printf("%s\n", host_names[n]);
 	color = 0;
 	for (n=0; n<num_procs; n++)  {
 		if(n>0 && strcmp(host_names[n-1], host_names[n])) color++;
@@ -310,6 +316,7 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	for (loggroup = 0; loggroup < group_size; loggroup++)
 		if ((1 << loggroup) == group_size) break;
 #endif
+	//printf("my rank is %d, my group is %d, my group rank is %d\n", myproc, mygroup, mylocal);
 	if(myproc!=PROC_FROM_GROUPLOCAL(mygroup,mylocal)) {printf("AML: Fatal: Strange group rank assignment scheme.\n");return -1;}
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
@@ -326,6 +333,7 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	if(myproc==0) printf ("NRECV=%d NRECVi=%d NSEND=%d  NSENDi=%d AGGR=%dK AGGRi=%dK\n",NRECV,NRECV_intra,NSEND,NSEND_intra,AGGR>>10,AGGR_intra>>10);
 #endif
 	if(num_groups>MAXGROUPS) { if(myproc==0) printf("AML:v1.0 reference:unsupported num_groups > MAXGROUPS=%d\n",MAXGROUPS); exit(-1); }
+	if(myproc==0) printf ("NRECV=%d NRECVi=%d NSEND=%d  NSENDi=%d AGGR=%dK AGGRi=%dK\n",NRECV,NRECV_intra,NSEND,NSEND_intra,AGGR>>10,AGGR_intra>>10);
 	fflush(NULL);
 	//init preposted recvs: NRECV internode
 	for(i=0;i<NRECV;i++)  {
@@ -360,7 +368,9 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 		sendsize_intra[j] = 0; nbuf_intra[j] = j; acks_intra[j]=0;
 	}
 	for(i=0;i<NRECV_intra;i++)
+	{
 		MPI_Start(rqrecv_intra+i);
+	}
 
 	for ( j = 0; j < NSEND_intra; j++ ) {
 		MPI_Isend( NULL, 0, MPI_CHAR, MPI_PROC_NULL, 0, comm_intra, rqsend_intra+j );
@@ -371,7 +381,9 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 		sendsize[j] = 0; nbuf[j] = j;  acks[j]=0;
 	}
 	for(i=0;i<NRECV;i++)
+	{
 		MPI_Start( rqrecv+i );
+	}
 	for ( j = 0; j < NSEND; j++ ) {
 		MPI_Isend( NULL, 0, MPI_CHAR, MPI_PROC_NULL, 0, comm, rqsend+j );
 		activebuf[j]=num_groups+j;

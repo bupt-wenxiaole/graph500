@@ -303,9 +303,8 @@ int main(int argc, char** argv) {
 	if (rank == 0) { /* Not an official part of the results */
 		fprintf(stderr, "construction_time:              %f s\n", data_struct_time);
 	}
-
-	//generate non-isolated roots
-	//{
+//	//generate non-isolated roots
+//	{
 //		uint64_t counter = 0;
 //		int bfs_root_idx;
 //		for (bfs_root_idx = 0; bfs_root_idx < num_bfs_roots; ++bfs_root_idx) {
@@ -568,6 +567,7 @@ int main(int argc, char** argv) {
 //	free(sssp_times);
 //	free(validate_times2);
 //#endif
+
 	cleanup_globals();
 	aml_finalize(); //includes MPI_Finalize()
 	return 0;
