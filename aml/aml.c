@@ -18,69 +18,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <pthread.h>
-
-#ifdef __APPLE__
-#define SYSCTL_CORE_COUNT   "machdep.cpu.core_count"
-#include <sys/sysctl.h>
-#include <sys/types.h>
-#include <mach/thread_policy.h>
-#include <mach/thread_act.h>
-// code borrowed from http://yyshen.github.io/2015/01/18/binding_threads_to_cores_osx.html
-typedef struct cpu_set {
-  uint32_t    count;
-} cpu_set_t;
-
-static inline void
-CPU_ZERO(cpu_set_t *cs) { cs->count = 0; }
-
-static inline void
-CPU_SET(int num, cpu_set_t *cs) { cs->count |= (1 << num); }
-
-static inline int
-CPU_ISSET(int num, cpu_set_t *cs) { return (cs->count & (1 << num)); }
-
-int sched_getaffinity(pid_t pid, size_t cpu_size, cpu_set_t *cpu_set)
-{
-  int32_t core_count = 0;
-  size_t  len = sizeof(core_count);
-  int ret = sysctlbyname("machdep.cpu.core_count", &core_count, &len, 0, 0);
-  if (ret) {
-    printf("error while get core count %d\n", ret);
-    return -1;
-  }
-  cpu_set->count = 0;
-  for (int i = 0; i < core_count; i++) {
-    cpu_set->count |= (1 << i);
-  }
-
-  return 0;
-}
-int pthread_setaffinity_np(pthread_t thread, size_t cpu_size,
-                           cpu_set_t *cpu_set)
-{
-  thread_port_t mach_thread;
-  int core = 0;
-
-  for (core = 0; core < 8 * cpu_size; core++) {
-    if (CPU_ISSET(core, cpu_set)) break;
-  }
-  thread_affinity_policy_data_t policy = { core };
-  mach_thread = pthread_mach_thread_np(thread);
-  thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY,
-                    (thread_policy_t)&policy, 1);
-  return 0;
-}
-#else
 #include <malloc.h>
-#endif
-
-#ifdef __clang__
-#define inline static inline
-#endif
-
 #include <unistd.h>
 #include <mpi.h>
+#include <pthread.h>
 
 #define MAXGROUPS 65536		//number of nodes (core processes form a group on a same node)
 #define AGGR (1024*32) //aggregation buffer size per dest in bytes : internode
@@ -140,6 +81,12 @@ static MPI_Request rqsend_intra[NSEND_intra];
 static char recvbuf_intra[AGGR_intra*NRECV_intra];
 static MPI_Request rqrecv_intra[NRECV_intra];
 volatile static int ack_intra=0;
+
+FILE* subgraphedgesfile;
+FILE* isolatedfile;
+FILE* masterfile;
+FILE* mirrorfile;
+
 inline void aml_send_intra(void *srcaddr, int type, int length, int local ,int from);
 
 void aml_finalize(void);
@@ -429,12 +376,24 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 		MPI_Isend( NULL, 0, MPI_CHAR, MPI_PROC_NULL, 0, comm, rqsend+j );
 		activebuf[j]=num_groups+j;
 	}
+	char edgesfilepath[100];
+	sprintf(edgesfilepath, "/mnt/nfs/xwen/graphData/G.%d", myproc);
+	subgraphedgesfile = fopen(edgesfilepath, "w");
+	char isolatedpath[100];
+	sprintf(isolatedpath, "/mnt/nfs/xwen/graphData/Isolateds.%d", myproc);
+	isolatedfile = fopen(isolatedpath, "w");
+	char masterpath[100];
+	sprintf(masterpath, "/mnt/nfs/xwen/graphData/Master.%d", myproc);
+	masterfile = fopen(masterpath, "w");
+	char mirrorpath[100];
+	sprintf(mirrorpath, "/mnt/nfs/xwen/graphData/Mirror.%d", myproc);
+	mirrorfile = fopen(mirrorpath, "w");
 	return 0;
 }
 
 SOATTR void aml_barrier( void ) {
 	int i,flag;
-	MPI_Request hndl;
+	MPI_Request hndl; 
 	inbarrier++;
 	//1. flush internode buffers
 	for ( i = 1; i < num_groups; i++ ) {
