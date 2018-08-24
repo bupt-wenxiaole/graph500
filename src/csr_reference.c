@@ -245,7 +245,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	g->tg = tg;
 
 	size_t i,j,k;
-	int64_t nvert= 23947500;
+	int64_t nvert= 23947347;
 	nvert/=num_pes();
 	nvert+=1;
 	degrees=xcalloc(nvert,sizeof(int));
@@ -286,6 +286,8 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 			char* token2 = strtok(NULL, " ");
 			int64_t v0 = atoll(token1);
 			int64_t v1 = atoll(token2);
+                        v0 -= 1;
+                        v1 -= 1;
 			if(v0==v1) continue;
 			send_half_edge(v0, v1);
 			
@@ -397,6 +399,9 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 
 			int64_t v0 = atoll(token1);
 			int64_t v1 = atoll(token2);
+			//for making vertexID start from 0
+                        v0 -= 1;
+                        v1 -= 1;
 			float weight = atof(token3);
 			if(v0==v1) continue;
 #ifdef SSSP
@@ -509,8 +514,8 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 		int k = 0;
 		for(k = rowstarts[j]; k < rowstarts[j+1]; ++k){
 			int64_t gsrc, gdst;
-			gsrc = VERTEX_TO_GLOBAL(my_pe(), i);
-			gdst = COLUMN(j);
+			gsrc = VERTEX_TO_GLOBAL(my_pe(), j);
+			gdst = COLUMN(k);
 #ifdef SSSP 
 			int vglobal[5];
 			memcpy(vglobal,&gsrc,8);
@@ -530,7 +535,8 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 
    }
    aml_barrier();
-   //next pass, dump the vertices 
+   //next pass, dump the vertices and compute statistics for vertex-cut communication
+   float  cutted_vertex_num = 0;
    aml_register_handler(dump_vertex_hndl, 1);
    for(j = 0; j < nlocalverts; ++j){
    		if(vertex_replica_num[j] <= 1)
@@ -539,7 +545,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
    			//these vertices envolve in communication
    			int master_location;
    			int* all_other_location = malloc(4*(vertex_replica_num[j]-1));
-
+			cutted_vertex_num++;
    			vertex_spawn_info_node* temp = vertex_spawn_info[j];
    			int i = 0;
    			while(temp != NULL){
@@ -577,7 +583,11 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 		}
    }
    aml_barrier();
-
+   float global_cutted_vertex_num;
+   MPI_Reduce(&cutted_vertex_num, &global_cutted_vertex_num, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD); 
+   if(my_pe() == 0){
+	printf("cutted vertex percent = %f\n", cutted_vertex_num/global_cutted_vertex_num);
+   }
 }
 
 void free_oned_csr_graph(oned_csr_graph* const g) {
