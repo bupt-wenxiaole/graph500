@@ -389,16 +389,16 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 		activebuf[j]=num_groups+j;
 	}
 	char edgesfilepath[100];
-	sprintf(edgesfilepath, "/mnt/nfs/xwen/graphData/G.%d", myproc);
+	sprintf(edgesfilepath, "/mnt/nfs/xwen/liveJournal_vc_part24/G.%d", myproc);
 	subgraphedgesfile = fopen(edgesfilepath, "w");
 	char isolatedpath[100];
-	sprintf(isolatedpath, "/mnt/nfs/xwen/graphData/Isolateds.%d", myproc);
+	sprintf(isolatedpath, "/mnt/nfs/xwen/liveJournal_vc_part24/Isolateds.%d", myproc);
 	isolatedfile = fopen(isolatedpath, "w");
 	char masterpath[100];
-	sprintf(masterpath, "/mnt/nfs/xwen/graphData/Master.%d", myproc);
+	sprintf(masterpath, "/mnt/nfs/xwen/liveJournal_vc_part24/Master.%d", myproc);
 	masterfile = fopen(masterpath, "w");
 	char mirrorpath[100];
-	sprintf(mirrorpath, "/mnt/nfs/xwen/graphData/Mirror.%d", myproc);
+	sprintf(mirrorpath, "/mnt/nfs/xwen/liveJournal_vc_part24/Mirror.%d", myproc);
 	mirrorfile = fopen(mirrorpath, "w");
 	return 0;
 }

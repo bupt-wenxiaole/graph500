@@ -245,7 +245,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 	g->tg = tg;
 
 	size_t i,j,k;
-	int64_t nvert= 23947347;
+	int64_t nvert= 4847571;
 	nvert/=num_pes();
 	nvert+=1;
 	degrees=xcalloc(nvert,sizeof(int));
@@ -282,12 +282,10 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 		printf("start send\n");
 		while((read = getline(&line, &len, partitionfile)) != -1){
 			//preprocessing input file to each line contains two elements
-			char* token1 = strtok(line, " ");
-			char* token2 = strtok(NULL, " ");
+			char* token1 = strtok(line, "\t");
+			char* token2 = strtok(NULL, "\t");
 			int64_t v0 = atoll(token1);
 			int64_t v1 = atoll(token2);
-                        v0 -= 1;
-                        v1 -= 1;
 			if(v0==v1) continue;
 			send_half_edge(v0, v1);
 			
@@ -393,19 +391,15 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 			exit(EXIT_FAILURE);
 		while((read = getline(&line, &len, partitionfile)) != -1){
 			//preprocessing input file to each line contains two elements
-			char* token1 = strtok(line, " ");
-			char* token2 = strtok(NULL, " ");
-			char* token3 = strtok(NULL, " ");
+			char* token1 = strtok(line, "\t");
+			char* token2 = strtok(NULL, "\t");
 
 			int64_t v0 = atoll(token1);
 			int64_t v1 = atoll(token2);
-			//for making vertexID start from 0
-                        v0 -= 1;
-                        v1 -= 1;
-			float weight = atof(token3);
 			if(v0==v1) continue;
 #ifdef SSSP
-
+			char* token3 = strtok(NULL, "\t");
+			float weight = atof(token3);	
 			send_full_edge(v0, v1,weight);
 #else				
 			send_full_edge(v0, v1);

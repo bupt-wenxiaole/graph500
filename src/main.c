@@ -100,9 +100,9 @@ int main(int argc, char** argv) {
 
 	tuple_graph tg;
 	//tg.nglobaledges = (int64_t)(edgefactor) << SCALE;
-	tg.nglobaledges = 58333344;
+	tg.nglobaledges = 68993773;
 	//int64_t nglobalverts = (int64_t)(1) << SCALE;
-	int64_t nglobalverts = 23947347; 
+	int64_t nglobalverts = 4847571; 
 //	tg.data_in_file = (filename != NULL);
 //	tg.write_file = 1;//
 
