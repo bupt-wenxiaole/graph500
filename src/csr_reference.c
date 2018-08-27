@@ -36,6 +36,7 @@ extern FILE* subgraphedgesfile;
 extern FILE* isolatedfile;
 extern FILE* masterfile;
 extern FILE* mirrorfile;
+extern FILE* degreefile;
 //this function is needed for roots generation
 int isisolated(int64_t v) {
 	if(my_pe()==VERTEX_OWNER(v)) return (g.rowstarts[VERTEX_LOCAL(v)]==g.rowstarts[VERTEX_LOCAL(v)+1]);
@@ -211,7 +212,15 @@ void dump_edge_hndl(int frompe,void* data,int sz) {
 	fprintf(subgraphedgesfile, "%s\n", edgetuple);
 	#endif
 }
-
+#ifdef DUMP_THE_DEGREE
+void dump_degree_hndl(int frompe, void* data, int sz) {
+    int64_t index = *(int64_t*)data;
+    int degree = *((int*)(data+8));
+    char pair[100];
+    sprintf(pair, "%lld %d", index, degree);
+    fprintf(degreefile, "%s\n", pair);
+}
+#endif
 void dump_vertex_hndl(int from, void* data, int sz) {
 	int isMaster = *(int*)data;
 	int64_t vertexid = *((int64_t*)(data+4));
@@ -480,7 +489,6 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 			add_vsi_node(&vertex_spawn_info[j], edge_part[k]); 
 		}
 	}
-	free(tgt_degrees);
 
 
 	vertex_replica_num = xmalloc((nlocalverts) * sizeof(int));
@@ -529,17 +537,48 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
 
    }
    aml_barrier();
+#ifdef DUMP_THE_DEGREE
+   //dump the degrees of src and tgt
+   aml_register_handler(dump_degree_hndl,1);
+    for(j = 0; j < nlocalverts; ++j){
+        int k = 0;
+        for(k = rowstarts[j]; k < rowstarts[j+1]; ++k){
+            int64_t gsrc, gdst;
+            gsrc = VERTEX_TO_GLOBAL(my_pe(), j);
+            gdst = COLUMN(k);
+            int src_degree = rowstarts[j+1] - rowstarts[j];
+            int tgt_degree = tgt_degrees[k];
+
+            int vglobal[3];
+            memcpy(vglobal,&gsrc,8);
+            memcpy(vglobal+2,&src_degree,4);
+            aml_send(vglobal, 1, 12, edge_part[k]);
+
+            memcpy(vglobal, &gdst, 8);
+            memcpy(vglobal+2, &tgt_degree, 4);
+            aml_send(vglobal, 1, 12, edge_part[k]);
+        }
+    }
+    aml_barrier();
+
+#endif
+
+
+    free(tgt_degrees);
+   
+
    //next pass, dump the vertices and compute statistics for vertex-cut communication
    float  cutted_vertex_num = 0;
    aml_register_handler(dump_vertex_hndl, 1);
    for(j = 0; j < nlocalverts; ++j){
+		cutted_vertex_num += vertex_replica_num[j];
    		if(vertex_replica_num[j] <= 1)
    			continue;  // no-cut vertex
    		else{
    			//these vertices envolve in communication
    			int master_location;
    			int* all_other_location = malloc(4*(vertex_replica_num[j]-1));
-			cutted_vertex_num++;
+
    			vertex_spawn_info_node* temp = vertex_spawn_info[j];
    			int i = 0;
    			while(temp != NULL){
@@ -580,7 +619,7 @@ void convert_graph_to_oned_csr(const tuple_graph* const tg, oned_csr_graph* cons
    float global_cutted_vertex_num;
    MPI_Reduce(&cutted_vertex_num, &global_cutted_vertex_num, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD); 
    if(my_pe() == 0){
-	printf("cutted vertex percent = %f\n", cutted_vertex_num/global_cutted_vertex_num);
+	printf("avg vertex replica = %f\n", global_cutted_vertex_num/g->nglobalverts);
    }
 }
 

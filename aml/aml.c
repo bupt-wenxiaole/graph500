@@ -88,6 +88,9 @@ FILE* subgraphedgesfile;
 FILE* isolatedfile;
 FILE* masterfile;
 FILE* mirrorfile;
+#ifdef DUMP_THE_DEGREE
+FILE* degreefile;
+#endif
 
 inline void aml_send_intra(void *srcaddr, int type, int length, int local ,int from);
 
@@ -400,6 +403,11 @@ SOATTR int aml_init( int *argc, char ***argv ) {
 	char mirrorpath[100];
 	sprintf(mirrorpath, "/mnt/nfs/xwen/liveJournal_vc_part24/Mirror.%d", myproc);
 	mirrorfile = fopen(mirrorpath, "w");
+#ifdef DUMP_THE_DEGREE
+	char degreefilepath[100];
+	sprintf(degreefilepath, "/mnt/nfs/xwen/liveJournal_vc_part24/Degree.%d", myproc);
+	degreefile = fopen(degreefilepath, "w");
+#endif
 	return 0;
 }
 
